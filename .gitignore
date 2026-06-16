@@ -1,0 +1,20 @@
+.DS_Store
+*.pdf
+CLAUDE.md
+
+# Estado de runtime del clúster (IDs efímeros del Learner Lab)
+.emr_state
+.emr_state.bak
+
+# Datos TPC-DS generados (grandes; viven en S3, no en git)
+data/tpcds/*
+!data/tpcds/.gitkeep
+
+# Salidas de mediciones / trazas del agente
+results/*
+!results/.gitkeep
+
+# Cachés de Python / uv
+__pycache__/
+*.pyc
+.venv/
