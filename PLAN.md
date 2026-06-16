@@ -185,7 +185,10 @@ retaillm/
 │   │   ├── monitor.sh         # CPU/mem/tiempo; --engine hive|spark (ADAPTADO)
 │   │   ├── correlate.sh       # mapea pico de CPU → consulta
 │   │   └── verify_local.sh    # lógica Spark en local sin AWS (uv+pyspark+jdk4py)
-│   └── data/            # (Fase 1) generate_tpcds.sh + sandbox EC2
+│   └── data/            # generación TPC-DS (Fase 1)
+│       ├── generate_tpcds.sh    # orquestador 1 comando: EC2 → genera → sube → termina
+│       ├── connect_generator.sh # SSH a la EC2 generadora (debug)
+│       └── terminate_generator.sh
 ├── data/tpcds/sample/    # muestra local para verify_local (Fase 1)
 ├── warehouse/
 │   ├── hive/ddl/setup.hql     # CREATE EXTERNAL TABLE de las 5 tablas (Fase 2)
@@ -225,10 +228,28 @@ la estructura de carpetas creada. Aún **no** se crea clúster ni se gastan recu
 **Confirmado:** copiar + adaptar los scripts de `sparky`/`hive_big` (no reescribir);
 bucket `entrepot-retail-tpcds-20260610`.
 
-### Fase 1 — Datos TPC-DS
+### Fase 1 — Datos TPC-DS  ✅ COMPLETADA (scripts) (2026-06-15)
 
 **Meta:** generar el dataset TPC-DS (scale factor 10) con `tpcds-kit` y dejar las **5 tablas
 obligatorias** en S3, una carpeta por tabla, listas para que Hive y Spark las lean.
+
+**Hecho:** 3 scripts en `scripts/data/`, validados (`bash -n` incl. el script remoto embebido;
+enrutado `sed` por tabla probado). **Aún no ejecutados** (requiere lab AWS activo).
+
+| Script | Rol |
+|--------|-----|
+| `scripts/data/generate_tpcds.sh` | **orquestador de 1 comando**: lanza EC2 → genera+sube → verifica → termina |
+| `scripts/data/connect_generator.sh` | SSH a la EC2 generadora (depurar una corrida con `--keep`) |
+| `scripts/data/terminate_generator.sh` | limpieza manual de la EC2 si quedó viva |
+
+**Decisiones de implementación (más allá del PLAN inicial):**
+- **Instance profile `LabInstanceProfile`** (rol `LabRole` del Learner Lab) en la EC2, para que
+  el `aws s3 cp` **dentro** de la instancia tenga permiso de escritura a S3. Flag `--instance-profile`.
+- **Idempotencia por marcador `raw/_SUCCESS`**: si existe, se omite la generación (`--force` regenera).
+  El bucket se crea si falta.
+- **`trap EXIT` termina la EC2 siempre** (éxito, fallo o Ctrl+C), salvo `--keep`. Sin fugas de saldo.
+- **Generación + subida corren EN la EC2** sobre una sola sesión SSH (EC2 Instance Connect, sin
+  key pair), igual que `monitor.sh`. Disco **40 GB EBS gp3**; datos en `~/tpcds-data`.
 
 #### ¿Dónde generar? → EC2 Linux (sandbox), no en el Mac ni en el master EMR
 

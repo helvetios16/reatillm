@@ -2,9 +2,10 @@
 *.pdf
 CLAUDE.md
 
-# Estado de runtime del clúster (IDs efímeros del Learner Lab)
+# Estado de runtime del clúster / generador (IDs efímeros del Learner Lab)
 .emr_state
 .emr_state.bak
+.ec2_state
 
 # Datos TPC-DS generados (grandes; viven en S3, no en git)
 data/tpcds/*
