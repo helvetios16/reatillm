@@ -638,7 +638,16 @@ SQL generado → motor elegido → resultado → insight, en `results/agentic/`.
 
 ---
 
-### Fase 6 — Comparación manual vs agéntico (6.4)  (Obj. h)
+### Fase 6 — Comparación manual vs agéntico (6.4)  ✅ IMPLEMENTADA (código, 2026-06-17)  (Obj. h)
+
+> **Estado:** `comparison/compare.py` + `comparison/run_compare.sh` escritos y validados en
+> local (`py_compile` + `bash -n` OK; motor de comparación probado con registros de agente
+> sintéticos: detecta EXACTA, prefijo top-N y «sin contraparte», corriendo ambos SQL sobre la
+> muestra). `compare.py` re-ejecuta el SQL del agente (`results/agentic/q*.json`, Fase 5) y el
+> SQL manual (`queries/spark/queries.py`, Fase 3) sobre **la misma muestra** → comparación
+> justa, y emite `results/comparison/comparison.md` (tabla + ventajas/limitaciones). **Falta**
+> la corrida con salida real de la Fase 5 (requiere `GEMINI_API_KEY`). Lanzar:
+> `bash comparison/run_compare.sh`.
 
 **Meta:** contrastar el flujo **manual** (SQL escrito a mano en Fase 3) vs el **agéntico**
 (SQL generado por Gemini en Fase 5) y enumerar **ventajas y limitaciones**.
