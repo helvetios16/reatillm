@@ -374,11 +374,18 @@ Hereda el patrón idempotente de `download_data.sh` (crea bucket si no existe, o
 - [x] **"10 GB" = SF10 completo (24 tablas, ~10 GB reales en S3)**; Hive/Spark solo usan las 5.
 - [x] **Instancia generadora:** `c5.xlarge` (4 vCPU) + **40 GB EBS**, Amazon Linux 2023, terminada al acabar.
 
-### Fase 2 — Data Warehouse  (Obj. a, b)
+### Fase 2 — Data Warehouse  ✅ COMPLETADA (2026-06-15)  (Obj. a, b)
 
 **Meta:** declarar las **5 tablas obligatorias** como modelo dimensional sobre los `.dat`
 ya en S3 — en **Hive** (`CREATE EXTERNAL TABLE`) y exponer las mismas en **Spark**
 (vistas temporales) — para que las consultas de la Fase 3 corran idénticas en ambos motores.
+
+**Hecho:** `warehouse/hive/ddl/setup.hql` (5 tablas EXTERNAL, columnas/orden/tipos exactos del
+spec: customer 18, item 22, store 29, date_dim 28, store_sales 23) + `warehouse/spark/schema.py`
+(5 `StructType` con dummy `_extra` para el pipe final; `load_dw` solo para verify_local).
+**Validado con PySpark local** (smoke-test): los 5 esquemas parsean, `_extra` se descarta,
+`SUM(ss_net_paid)` y `COUNT(DISTINCT ss_ticket_number)` dan resultados correctos en un JOIN
+store_sales⋈store. Conteo de columnas HQL↔schema verificado.
 
 **Modelo dimensional (esquema estrella):** `store_sales` (FACT) en el centro; `customer`,
 `item`, `store`, `date_dim` (dimensiones). Claves de join:
