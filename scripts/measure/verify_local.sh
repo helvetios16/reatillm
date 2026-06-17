@@ -120,9 +120,14 @@ echo "[1/1] queries.py — 9 consultas sobre el DW sintético"
 LOG="$(mktemp "${TMPDIR:-/tmp}/retaillm_queries.XXXXXX.log")"
 "${UVRUN[@]}" "$RUNNER" "$QUERIES_PY" --sample "$SAMPLE_DIR" --query all > "$LOG" 2>&1
 
-check "las 9 consultas corren y miden" "$LOG" "Time taken"
-# TODO Fase 3: añadir aserciones de VALORES concretos (p.ej. ventas por tienda,
-# top clientes) una vez fijados los datos de la muestra sintética.
+# Aserciones de VALORES sobre la muestra fija (data/tpcds/sample). Confirman que
+# el SQL es correcto y que las FK NULL se descartan en los JOIN con customer.
+check "las 9 consultas corren y miden"          "$LOG" "Time taken"
+check "Q2 ventas por tienda: Centro = 310.00"   "$LOG" "Tienda_Centro" "310.00"
+check "Q5 top producto Centro: Cafe = 260.00"   "$LOG" "260.00"
+check "Q6 ticket promedio: Beto = 107.50"       "$LOG" "107.50"
+check "Q7 ingreso producto: Cafe = 310.00"      "$LOG" "310.00"
+check "Q8 top gasto: Beto Diaz = 215.00"        "$LOG" "Diaz" "215.00"
 
 # ── Resumen ──────────────────────────────────────────────────────────────────
 echo ""

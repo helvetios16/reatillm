@@ -435,12 +435,20 @@ re-declara), `schema.py` solo para verify_local.
 
 ---
 
-### Fase 3 — Consultas analíticas (6.1)  (Obj. c, d)
+### Fase 3 — Consultas analíticas (6.1)  ✅ COMPLETADA (2026-06-16)  (Obj. c, d)
 
 **Meta:** las **9 consultas** de 6.1, escritas **una sola vez como SQL** y ejecutadas en
 los dos motores: `queries/hive/queries.hql` (`hive -f`) y `queries/spark/queries.py`
 (`spark.sql()` sobre las vistas de la Fase 2). Mismo SQL → resultados idénticos → la
 comparación 6.3 mide *motor*, no *consulta*.
+
+**Hecho:** `queries/hive/queries.hql` (9 consultas + marcadores `=== Qn ===` para correlate)
+y `queries/spark/queries.py` (mismo SQL vía `spark.sql`, `--query 1..9|all`, `--sample` para
+verify_local; usa el metastore en el clúster). Muestra sintética en `data/tpcds/sample/`
+(5 tablas, claves de join coherentes, 1 venta con FK NULL). **Validado end-to-end con
+`verify_local.sh`: 6/6 aserciones OK** — las 9 consultas corren y los valores cuadran
+(Centro=310, Cafe=260/tienda, ticket Beto=107.50, gasto Beto=215), confirmando que las FK
+NULL se descartan en los JOIN con customer pero no en los de store/item/date.
 
 **Mapa de las 9 consultas** (FACT `store_sales` ⋈ dimensiones; ingreso = `SUM(ss_net_paid)`):
 

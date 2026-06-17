@@ -7,9 +7,11 @@ CLAUDE.md
 .emr_state.bak
 .ec2_state
 
-# Datos TPC-DS generados (grandes; viven en S3, no en git)
+# Datos TPC-DS generados (grandes; viven en S3, no en git).
+# Se versiona solo la muestra sintética para verify_local.
 data/tpcds/*
 !data/tpcds/.gitkeep
+!data/tpcds/sample
 
 # Salidas de mediciones / trazas del agente
 results/*
