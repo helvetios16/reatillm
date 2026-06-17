@@ -531,51 +531,107 @@ core m4.large; subir core-count si Hive sobre los 10 GB va lento.
 
 ---
 
-### Fase 5 — Capa agéntica con Gemini (6.2)  (Obj. f, g)
+### Fase 5 — Capa agéntica con Gemini (6.2)  ✅ IMPLEMENTADA (código, 2026-06-17)  (Obj. f, g)
+
+> **Estado:** las 10 piezas de `agentic/` están escritas y validadas en local:
+> `py_compile` + `bash -n` OK; el **backend local de la Skill 4** corre SQL real sobre
+> `data/tpcds/sample/` con PySpark y extrae filas correctas (`Tienda_Centro=310.00`, coincide
+> con `verify_local`). **Falta** el end-to-end con LLM (S1/S2/S3/S5) y el backend `emr`, que
+> requieren `GEMINI_API_KEY` y clúster vivo respectivamente (pasos manuales del usuario).
+> Lanzar con `bash agentic/run_agent.sh --target local`.
 
 **Meta:** un agente que recibe preguntas en **lenguaje natural** y, vía **5 skills**, las
-traduce a SQL y las ejecuta **sobre el clúster EMR real**, devolviendo resultado + insight.
-Totalmente nuevo — es el diferenciador del proyecto.
+traduce a SQL y las ejecuta, devolviendo resultado + insight. Totalmente nuevo — es el
+diferenciador del proyecto.
 
-**Arquitectura — `agentic/` (Python + `google-generativeai`):**
+**Estrategia LOCAL-FIRST (clave: se construye SIN la Fase 4).** La Fase 4 NO es prerrequisito
+de la 5 (la 5 depende de la 3 + un backend de ejecución; la 6 depende de 3+5). Para poder
+desarrollar y validar TODO en el Mac sin AWS, la **Skill 4 tiene dos backends** (`--target`):
+- `local` → corre el SQL del agente vía **PySpark sobre `data/tpcds/sample/`**, reusando
+  `warehouse/spark/schema.py::load_dw` (igual que `verify_local`). Pipeline completo
+  NL→intent→SQL→resultado→insight **sin clúster**.
+- `emr` → corre sobre el clúster real (ver Skill 4). Se ejercita recién cuando exista clúster;
+  ahí se hacen los ajustes (parseo de stdout, dialecto Hive vs Spark).
+
+**Decisiones de implementación — RESUELTAS (2026-06-17):**
+- **SDK = `google-genai`** (el NUEVO; *no* el legacy `google-generativeai`) + modelo **Gemini
+  Flash**. JSON mode para S1/S2/S3; reintentos centralizados en `gemini_client.py`. Key desde
+  el env `GEMINI_API_KEY`.
+- **Ejecución EMR = helper bash.** Se extrae el mecanismo EC2 Instance Connect de
+  `scripts/measure/monitor.sh` a `agentic/run_remote.sh` (`run_remote.sh <engine> <sql>` →
+  stdout); `s4_execute.py` lo llama por `subprocess`. **No** paramiko (evita duplicar lógica
+  ya probada).
+
+**Arquitectura — `agentic/` (Python + `google-genai`):**
 ```
 agentic/
-├── agent.py            # orquestador: encadena las 5 skills
-├── schema_context.py   # DDL de las 5 tablas + glosario (ingreso=ss_net_paid…) → contexto del LLM
+├── agent.py            # orquestador: encadena S1→S5, escribe results/agentic/<n>.json
+├── schema_context.py   # 5 tablas (cols + grafo de joins) + glosario → contexto del LLM
+├── gemini_client.py    # wrapper del SDK (key del env, modelo Flash, JSON mode, reintentos)
+├── run_remote.sh       # helper bash: SQL+engine → SSH al master (extraído de monitor.sh)
 ├── skills/
 │   ├── s1_intent.py    # Skill 1 — Interpretación de intención
 │   ├── s2_sql.py       # Skill 2 — Generación de SQL
 │   ├── s3_engine.py    # Skill 3 — Selección de motor (Hive|Spark)
-│   ├── s4_execute.py   # Skill 4 — Ejecución sobre EMR (SSH, reusa .emr_state)
+│   ├── s4_execute.py   # Skill 4 — Ejecución (backend local | emr)
 │   └── s5_present.py   # Skill 5 — Presentación (tabla + insight)
 └── questions.txt       # las 5+ preguntas NL de 6.2
 ```
 
+**Contratos de datos entre skills** (las hace piezas independientes y testeables):
+
+| Skill | Entrada | Salida (JSON) |
+|-------|---------|---------------|
+| **S1 Intención** | pregunta NL | `{metric, dimension, filters[], order, limit, tables[], needs_window}` |
+| **S2 SQL** | intent + `schema_context` | `{sql, explicacion}` |
+| **S3 Motor** | intent + sql | `{engine: hive\|spark, razon}` |
+| **S4 Ejecución** | sql + engine + target | `{columns[], rows[], time_taken, rc, raw_stdout}` |
+| **S5 Presentación** | pregunta + columns/rows | `{tabla_md, insight}` |
+
+**`schema_context.py`** (evita que el SQL alucine): las 5 tablas con sus columnas (derivadas de
+`setup.hql`), el **grafo de joins** (`ss_customer_sk→customer`, `ss_item_sk→item`,
+`ss_store_sk→store`, `ss_sold_date_sk→date_dim`) y el **glosario de negocio**
+(`ingreso/ventas = SUM(ss_net_paid)`, `unidades = SUM(ss_quantity)`, `ticket = por
+ss_ticket_number`, usar `INNER JOIN` que descarta ~4% FKs NULL, nunca inventar columnas).
+
 **Las 5 skills (paradigma del PDF):**
-1. **Intención** — Gemini clasifica la pregunta → intent estructurado
-   (`{metric, dimension, filter, limit, tablas[]}`). Ej.: *"¿los 5 productos más vendidos?"* →
-   `{metric: SUM(ss_quantity), dimension: item, limit: 5}`.
-2. **Generación de SQL** — Gemini genera SQL **restringido al esquema** (se le pasa
-   `schema_context.py`: las 5 tablas, sus claves y el glosario de métricas) → SQL válido
-   para Hive/Spark.
-3. **Selección de motor** — heurística + Gemini elige **Hive o Spark** (p.ej. agregaciones
-   pesadas/ventanas → Spark; lookup simple → Hive). **Decisión real** porque ejecuta sobre
-   el clúster vivo (vs. simulada).
-4. **Ejecución** — envía el SQL al **clúster EMR real** reusando el mecanismo SSH de
-   `monitor.sh` (push de key efímera por EC2 Instance Connect, `hive -e` _o_ `spark-sql -e`
-   en el master, lee `.emr_state` para el `CLUSTER_ID`). Captura stdout + `Time taken`.
-   ✅ Funciona porque las 5 tablas están en el **Hive Metastore compartido** (creadas en la
-   Fase 2): tanto `hive -e` como `spark-sql -e` las ven por nombre, sin re-declarar nada.
+1. **Intención** — Gemini clasifica la pregunta → intent estructurado.
+   Ej.: *"¿los 5 productos más vendidos?"* → `{metric: SUM(ss_quantity), dimension: item, limit: 5}`.
+2. **Generación de SQL** — Gemini genera SQL **restringido a `schema_context`** (5 tablas,
+   claves, glosario) → subconjunto común Hive/Spark (mismo dialecto que la Fase 3).
+3. **Selección de motor** — heurística (ventanas/CTE/agregación pesada → Spark; lookup/filtro
+   simple → Hive) refinada por Gemini, con razón. **Decisión real** porque S4 ejecuta de verdad.
+4. **Ejecución** — backend `local` (PySpark/sample) o `emr` (`run_remote.sh`: push de key
+   efímera por EC2 Instance Connect, `hive -e` _o_ `spark-sql -e` en el master, lee
+   `.emr_state` para el `CLUSTER_ID`). Captura stdout + `Time taken`.
+   ✅ En EMR funciona porque las 5 tablas están en el **Hive Metastore compartido** (Fase 2):
+   tanto `hive -e` como `spark-sql -e` las ven por nombre, sin re-declarar nada.
 5. **Presentación** — formatea el resultado como tabla y Gemini redacta un **insight** corto
    en lenguaje natural.
 
 **Las preguntas NL de 6.2** (mínimo 5): *5 productos más vendidos · tienda con mayores ventas ·
 mes con mayores ingresos · 10 mejores clientes · productos con mayores ingresos* (+ libres).
 Varias coinciden conceptualmente con consultas de 6.1 → permite **validar** que el SQL
-generado por el agente da el mismo resultado que el SQL manual (insumo de la Fase 6).
+generado por el agente da el mismo resultado que el SQL manual.
 
-**Pre-requisito operativo:** clúster vivo (de la Fase 4) + `GEMINI_API_KEY` en el entorno
-(lo manual del usuario). API key: aistudio.google.com/api-keys.
+**Validación sin clúster (cómo se prueba ahora):**
+- End-to-end local: `agent.py --target local` corre las 5+ preguntas sobre la muestra.
+- Correctitud vs manual: para las preguntas que coinciden con la Fase 3, comparar el resultado
+  del SQL del agente contra `queries.py --sample` → tabla ✓/✗ (anticipo local de la Fase 6).
+
+**Limitaciones conocidas a ajustar con la Fase 4:**
+- En `--target local` siempre corre Spark → la elección de motor de S3 se **registra pero no se
+  ejerce** hasta el clúster.
+- El **parseo de stdout** de `hive -e`/`spark-sql -e` solo se confirma en EMR real.
+- Posibles diferencias de **dialecto Hive vs Spark** que la muestra local no revela.
+
+**Orden de implementación sugerido** (cada pieza validable en local): `schema_context.py` →
+`gemini_client.py` → `s1_intent.py` → `s2_sql.py` → `s4_execute.py` (local) + `agent.py` mínimo
+(primer end-to-end sobre la muestra) → `s3_engine.py`, `s5_present.py`, `questions.txt` →
+`run_remote.sh` (backend `emr`, se prueba recién con clúster).
+
+**Pre-requisito operativo (solo para `--target emr`):** clúster vivo + `GEMINI_API_KEY` en el
+entorno (lo manual del usuario). API key: aistudio.google.com/api-keys.
 
 **Salida:** `agent.py` corre las 5+ preguntas end-to-end y guarda, por pregunta: NL → intent →
 SQL generado → motor elegido → resultado → insight, en `results/agentic/`.

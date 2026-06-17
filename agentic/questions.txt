@@ -1,0 +1,11 @@
+# Preguntas en lenguaje natural para el agente (Fase 5, sección 6.2).
+# Una por línea. Las líneas con # o vacías se ignoran.
+# Varias mapean a consultas de la Fase 3 (6.1) -> permiten validar correctitud.
+
+¿Cuáles son los 5 productos con mayor ingreso?
+¿Qué tienda tiene mayores ventas?
+¿En qué mes se registraron los mayores ingresos?
+¿Quiénes son los 10 mejores clientes por gasto total?
+¿Cuáles son los productos más vendidos por unidades?
+¿Cuál es el ticket promedio por cliente?
+¿Cuáles son las ventas por día de la semana?
