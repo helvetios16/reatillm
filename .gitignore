@@ -7,6 +7,9 @@ CLAUDE.md
 .emr_state.bak
 .ec2_state
 
+# Secretos: API key de Gemini (NUNCA al repo). La carga run_agent.sh.
+.env
+
 # Datos TPC-DS generados (grandes; viven en S3, no en git).
 # Se versiona solo la muestra sintética para verify_local.
 data/tpcds/*

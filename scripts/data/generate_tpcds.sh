@@ -206,16 +206,21 @@ BUCKET="$1"; SCALE="$2"; PARALLEL="$3"
 DATADIR="$HOME/tpcds-data"
 KIT="$HOME/tpcds-kit"
 
-echo "[gen] instalando toolchain (gcc make flex bison git)..."
-sudo dnf -y install gcc make flex bison git >/dev/null
+echo "[gen] instalando toolchain (gcc make flex bison byacc git)..."
+# byacc provee /usr/bin/yacc, que el makefile de tpcds-kit usa para qgen.
+sudo dnf -y install gcc make flex bison byacc git >/dev/null
 
 echo "[gen] clonando gregrahn/tpcds-kit..."
 rm -rf "$KIT"
 git clone --depth 1 https://github.com/gregrahn/tpcds-kit.git "$KIT" >/dev/null 2>&1
 
-echo "[gen] compilando dsdgen (make OS=LINUX)..."
-make -C "$KIT/tools" OS=LINUX >/dev/null 2>&1
-test -x "$KIT/tools/dsdgen" || { echo "[gen] ERROR: no se compiló dsdgen"; exit 1; }
+echo "[gen] compilando dsdgen (make OS=LINUX, CC con -fcommon para GCC moderno)..."
+# tpcds-kit no compila con GCC 10+ por defecto (-fno-common => 'multiple definition').
+# -fcommon restaura el comportamiento antiguo. Si falla, mostramos el error real.
+if ! make -C "$KIT/tools" OS=LINUX CC="gcc -fcommon" > /tmp/make.log 2>&1; then
+  echo "[gen] ERROR compilando dsdgen:"; tail -25 /tmp/make.log; exit 1
+fi
+test -x "$KIT/tools/dsdgen" || { echo "[gen] ERROR: no se compiló dsdgen"; tail -25 /tmp/make.log; exit 1; }
 
 echo "[gen] generando datos SF$SCALE en $PARALLEL procesos paralelos..."
 mkdir -p "$DATADIR"

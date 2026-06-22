@@ -24,7 +24,8 @@ JDK="jdk4py>=17,<18"
 
 command -v uv >/dev/null 2>&1 || { echo "ERROR: falta uv (este proyecto usa uv)."; exit 1; }
 
-RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_compare_run.XXXXXX.py")"
+# Nota: las X van al FINAL (macOS mktemp no sustituye si hay sufijo .py después).
+RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_compare_run.XXXXXX")"
 trap 'rm -f "$RUNNER"' EXIT INT TERM
 cat > "$RUNNER" <<'PY'
 import os, sys, runpy

@@ -99,7 +99,7 @@ echo "  (la 1ª corrida construye pyspark en la caché de uv; puede tardar 1-2 m
 echo ""
 
 # ── Launcher genérico: fija JAVA_HOME (jdk4py) y ejecuta el .py real ──────────
-RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_run.XXXXXX.py")"
+RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_run.XXXXXX")"
 cat > "$RUNNER" <<'PY'
 import os, sys, runpy
 from jdk4py import JAVA_HOME

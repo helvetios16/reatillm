@@ -22,8 +22,12 @@ import os
 import time
 
 DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-MAX_RETRIES = 4
+MAX_RETRIES = 6
 BACKOFF_BASE = 1.5  # segundos: 1.5, 2.25, 3.4, ...
+# El free tier permite ~5 req/min. Espaciamos las llamadas para no chocar con el
+# 429 (configurable; 0 = sin throttle, p.ej. en cuenta de pago).
+MIN_INTERVAL = float(os.environ.get("GEMINI_MIN_INTERVAL", "13"))
+_last_call = [0.0]  # mutable para compartir entre instancias
 
 
 class GeminiError(RuntimeError):
@@ -49,10 +53,19 @@ class GeminiClient:
         self.client = genai.Client(api_key=key)
 
     # ── núcleo: una llamada con reintentos ───────────────────────────────
+    def _throttle(self):
+        if MIN_INTERVAL <= 0:
+            return
+        wait = MIN_INTERVAL - (time.time() - _last_call[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_call[0] = time.time()
+
     def _call(self, contents, config):
         last = None
         for attempt in range(MAX_RETRIES):
             try:
+                self._throttle()
                 resp = self.client.models.generate_content(
                     model=self.model, contents=contents, config=config)
                 text = (resp.text or "").strip()
@@ -62,7 +75,9 @@ class GeminiClient:
             except Exception as e:  # red, cuota, vacío...
                 last = e
                 if attempt < MAX_RETRIES - 1:
-                    time.sleep(BACKOFF_BASE ** (attempt + 1))
+                    # Ante 429, espera el tiempo que pide la API (o un mínimo holgado).
+                    delay = _retry_delay(e)
+                    time.sleep(delay if delay else BACKOFF_BASE ** (attempt + 1))
         raise GeminiError(f"Gemini falló tras {MAX_RETRIES} intentos: {last}")
 
     # ── texto libre ──────────────────────────────────────────────────────
@@ -90,6 +105,19 @@ class GeminiClient:
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(BACKOFF_BASE ** (attempt + 1))
         raise GeminiError(f"el modelo no devolvió JSON válido: {last}")
+
+
+def _retry_delay(exc):
+    """Si el error trae un retryDelay (429), devuelve los segundos (con margen)."""
+    msg = str(exc)
+    if "429" not in msg and "RESOURCE_EXHAUSTED" not in msg:
+        return 0
+    import re
+    m = re.search(r"retry.{0,3}in\s+([0-9.]+)s|'retryDelay':\s*'([0-9]+)s", msg)
+    if m:
+        secs = float(m.group(1) or m.group(2))
+        return secs + 2
+    return 20.0  # 429 sin detalle: espera holgada para que se reabra la ventana
 
 
 def _strip_fences(text):

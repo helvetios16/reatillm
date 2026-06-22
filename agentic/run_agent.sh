@@ -26,6 +26,14 @@ JDK="jdk4py>=17,<18"
 GENAI="google-genai"
 
 command -v uv >/dev/null 2>&1 || { echo "ERROR: falta uv (este proyecto usa uv)."; exit 1; }
+
+# Carga .env de la raíz del repo si existe (GEMINI_API_KEY=...). Está en .gitignore.
+ENV_FILE="$(cd "$HERE/.." && pwd)/.env"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a; # shellcheck disable=SC1090
+  source "$ENV_FILE"; set +a
+fi
+
 [[ -n "${GEMINI_API_KEY:-}" ]] || {
   echo "ERROR: falta GEMINI_API_KEY. Obtén una en https://aistudio.google.com/api-keys y:"
   echo "  export GEMINI_API_KEY=..."
@@ -33,7 +41,8 @@ command -v uv >/dev/null 2>&1 || { echo "ERROR: falta uv (este proyecto usa uv).
 }
 
 # Launcher que fija JAVA_HOME (jdk4py) antes de correr agent.py (igual que verify_local).
-RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_agent_run.XXXXXX.py")"
+# Nota: las X van al FINAL (macOS mktemp no sustituye si hay sufijo .py después).
+RUNNER="$(mktemp "${TMPDIR:-/tmp}/retaillm_agent_run.XXXXXX")"
 trap 'rm -f "$RUNNER"' EXIT INT TERM
 cat > "$RUNNER" <<'PY'
 import os, sys, runpy

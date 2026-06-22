@@ -669,7 +669,16 @@ Fase 3 (manual) y la Fase 5 (agéntico) ya corridas.
 
 ---
 
-### Fase 7 — Entregable  (Sec. IV + plus)
+### Fase 7 — Entregable  ✅ INFORME COMPILADO (2026-06-17)  (Sec. IV + plus)
+
+> **Estado:** el informe LaTeX está escrito y compila con `tectonic -X build` en el repo
+> aparte `/Users/sebastian/Documents/Latex/agenticspark` (clase `base.cls`, plantilla EPCC-UNSA,
+> autor Sebastián Mendoza). `src/index.tex` consolida Fases 1–6 (intro, arquitectura, modelo
+> dimensional, 9 consultas, metodología 6.3, las 5 skills, comparación manual vs agéntico con
+> ventajas/limitaciones, validación local con valores reales de la muestra, sección de
+> visualización). Salida: `build/index/index.pdf`. **Pendiente:** rellenar la tabla 6.3 y las
+> trazas reales del agente tras la corrida en EMR; el módulo de gráficos matplotlib (plus) está
+> descrito pero aún no implementado en código.
 
 **Meta:** consolidar todo en un **PDF** con nombre del autor arriba, más el **plus** de
 visualización para puntaje extra.
