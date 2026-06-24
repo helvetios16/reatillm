@@ -1,0 +1,582 @@
+{
+  "performance": {
+    "queries": [
+      {
+        "q": 1,
+        "label": "Top 20 clientes por numero de compras",
+        "hive_s": 61.0,
+        "spark_s": null
+      },
+      {
+        "q": 2,
+        "label": "Ventas por tienda",
+        "hive_s": 17.0,
+        "spark_s": null
+      },
+      {
+        "q": 3,
+        "label": "Ventas por mes",
+        "hive_s": 11.0,
+        "spark_s": null
+      },
+      {
+        "q": 4,
+        "label": "Ventas por dia de la semana",
+        "hive_s": 10.0,
+        "spark_s": null
+      },
+      {
+        "q": 5,
+        "label": "Top productos por tienda",
+        "hive_s": 15.0,
+        "spark_s": null
+      },
+      {
+        "q": 6,
+        "label": "Ticket promedio por cliente",
+        "hive_s": 11.0,
+        "spark_s": null
+      },
+      {
+        "q": 7,
+        "label": "Productos con mayor ingreso",
+        "hive_s": 9.0,
+        "spark_s": null
+      },
+      {
+        "q": 8,
+        "label": "Top clientes por gasto total",
+        "hive_s": 10.0,
+        "spark_s": null
+      },
+      {
+        "q": 9,
+        "label": "Ranking mensual de ventas",
+        "hive_s": 8.0,
+        "spark_s": null
+      }
+    ],
+    "cpu": {
+      "hive_pct": 99.5,
+      "spark_pct": null
+    },
+    "mem": {
+      "hive_used_mib": 4580.2,
+      "spark_used_mib": null,
+      "total_mib": 7942.1
+    },
+    "totals": {
+      "hive_s": 152.0,
+      "spark_s": null
+    },
+    "source": {
+      "hive": "20260623-204406",
+      "spark": "20260623-204803"
+    }
+  },
+  "agentic": [
+    {
+      "n": 1,
+      "question": "¿Cuáles son los 5 productos con mayor ingreso?",
+      "intent": {
+        "metric": "suma de ss_net_paid",
+        "dimension": "producto",
+        "filters": [],
+        "order": "desc",
+        "limit": 5,
+        "tables": [
+          "store_sales",
+          "item"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT i.i_item_id, i.i_product_name, ROUND(SUM(ss.ss_net_paid), 2) AS ingreso\nFROM store_sales ss\nINNER JOIN item i ON ss.ss_item_sk = i.i_item_sk\nGROUP BY i.i_item_id, i.i_product_name\nORDER BY ingreso DESC\nLIMIT 5",
+      "sql_explicacion": "Esta consulta devuelve los 5 productos que han generado el mayor ingreso total, calculando la suma de ss_net_paid para cada producto.",
+      "engine": "hive",
+      "engine_razon": "La consulta implica una agregación simple con un JOIN y no utiliza funciones de ventana ni CTEs complejos, lo que la hace adecuada para Hive.",
+      "insight": "El producto con mayor ingreso es Cafe con 310.0, seguido por Leche (90.0), Te (60.0) y Pan (45.0).",
+      "columns": [
+        "i_item_id",
+        "i_product_name",
+        "ingreso"
+      ],
+      "rows": [
+        [
+          "ITEM010",
+          "Cafe",
+          310.0
+        ],
+        [
+          "ITEM012",
+          "Leche",
+          90.0
+        ],
+        [
+          "ITEM013",
+          "Te",
+          60.0
+        ],
+        [
+          "ITEM011",
+          "Pan",
+          45.0
+        ]
+      ],
+      "time_taken": 1.11,
+      "ok": true
+    },
+    {
+      "n": 2,
+      "question": "¿Qué tienda tiene mayores ventas?",
+      "intent": {
+        "metric": "suma de ss_net_paid",
+        "dimension": "tienda",
+        "filters": [],
+        "order": "desc",
+        "limit": 1,
+        "tables": [
+          "store_sales",
+          "store"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT s.s_store_name, ROUND(SUM(ss.ss_net_paid), 2) AS ventas\nFROM store_sales ss\nINNER JOIN store s ON ss.ss_store_sk = s.s_store_sk\nGROUP BY s.s_store_name\nORDER BY ventas DESC\nLIMIT 1",
+      "sql_explicacion": "Esta consulta calcula el total de ventas (ingreso) para cada tienda y devuelve la tienda con el mayor volumen de ventas.",
+      "engine": "hive",
+      "engine_razon": "La consulta implica una agregación simple con un join y no utiliza funciones de ventana ni CTE complejos, lo que la hace adecuada para Hive.",
+      "insight": "La tienda con mayores ventas es Tienda_Centro, con 310.0.",
+      "columns": [
+        "s_store_name",
+        "ventas"
+      ],
+      "rows": [
+        [
+          "Tienda_Centro",
+          310.0
+        ]
+      ],
+      "time_taken": 0.16,
+      "ok": true
+    },
+    {
+      "n": 3,
+      "question": "¿En qué mes se registraron los mayores ingresos?",
+      "intent": {
+        "metric": "SUM(ss_net_paid)",
+        "dimension": "mes",
+        "filters": [],
+        "order": "desc",
+        "limit": 1,
+        "tables": [
+          "store_sales",
+          "date_dim"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT d.d_year, d.d_moy, ROUND(SUM(ss.ss_net_paid),2) AS ingresos FROM store_sales ss JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_year, d.d_moy ORDER BY ingresos DESC LIMIT 1",
+      "sql_explicacion": "Suma ss_net_paid por (año, mes) y toma el mes de mayor ingreso.",
+      "engine": "hive",
+      "engine_razon": "agregación con un join, sin funciones de ventana",
+      "insight": "El mes con mayores ingresos es 1/2001 con 290.0.",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "ingresos"
+      ],
+      "rows": [
+        [
+          2001,
+          1,
+          290.0
+        ]
+      ],
+      "time_taken": 1.1,
+      "ok": true
+    },
+    {
+      "n": 4,
+      "question": "¿Quiénes son los 10 mejores clientes por gasto total?",
+      "intent": {
+        "metric": "suma de ss_net_paid",
+        "dimension": "cliente",
+        "filters": [],
+        "order": "desc",
+        "limit": 10,
+        "tables": [
+          "store_sales",
+          "customer"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(SUM(ss.ss_net_paid), 2) AS gasto_total\nFROM store_sales ss\nINNER JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk\nGROUP BY c.c_customer_id, c.c_first_name, c.c_last_name\nORDER BY gasto_total DESC\nLIMIT 10",
+      "sql_explicacion": "Esta consulta calcula el gasto total de cada cliente y devuelve los 10 clientes que más han gastado, ordenados de mayor a menor gasto.",
+      "engine": "hive",
+      "engine_razon": "La consulta implica una agregación simple con joins y no utiliza funciones de ventana ni CTEs pesados, lo que la hace adecuada para Hive.",
+      "insight": "Los principales clientes por gasto total son Beto Diaz con 215.0, seguido de Ana Lopez con 150.0 y Cira Mora con 110.0.",
+      "columns": [
+        "c_customer_id",
+        "c_first_name",
+        "c_last_name",
+        "gasto_total"
+      ],
+      "rows": [
+        [
+          "CUST0002",
+          "Beto",
+          "Diaz",
+          215.0
+        ],
+        [
+          "CUST0001",
+          "Ana",
+          "Lopez",
+          150.0
+        ],
+        [
+          "CUST0003",
+          "Cira",
+          "Mora",
+          110.0
+        ],
+        [
+          "CUST0004",
+          "Dino",
+          "Paz",
+          20.0
+        ]
+      ],
+      "time_taken": 0.14,
+      "ok": true
+    },
+    {
+      "n": 5,
+      "question": "¿Cuáles son los productos más vendidos por unidades?",
+      "intent": {
+        "metric": "suma de ss_quantity",
+        "dimension": "producto",
+        "filters": [],
+        "order": "desc",
+        "limit": 5,
+        "tables": [
+          "store_sales",
+          "item"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT i.i_product_name, SUM(ss.ss_quantity) AS unidades FROM store_sales ss JOIN item i ON ss.ss_item_sk = i.i_item_sk GROUP BY i.i_product_name ORDER BY unidades DESC LIMIT 5",
+      "sql_explicacion": "Calcula suma de ss_quantity por producto.",
+      "engine": "hive",
+      "engine_razon": "agregación simple con joins, sin ventanas",
+      "insight": "El resultado principal es Cafe con 7. Le siguen Te (3), Leche (3).",
+      "columns": [
+        "i_product_name",
+        "unidades"
+      ],
+      "rows": [
+        [
+          "Cafe",
+          7
+        ],
+        [
+          "Te",
+          3
+        ],
+        [
+          "Leche",
+          3
+        ],
+        [
+          "Pan",
+          2
+        ]
+      ],
+      "time_taken": 0.11,
+      "ok": true
+    },
+    {
+      "n": 6,
+      "question": "¿Cuál es el ticket promedio por cliente?",
+      "intent": {
+        "metric": "AVG del total por ticket",
+        "dimension": "cliente",
+        "filters": [
+          "ss_customer_sk IS NOT NULL"
+        ],
+        "order": "desc",
+        "limit": 20,
+        "tables": [
+          "store_sales",
+          "customer"
+        ],
+        "needs_window": false
+      },
+      "sql": "WITH tickets AS (SELECT ss.ss_customer_sk, ss.ss_ticket_number, SUM(ss.ss_net_paid) AS total_ticket FROM store_sales ss WHERE ss.ss_customer_sk IS NOT NULL GROUP BY ss.ss_customer_sk, ss.ss_ticket_number) SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(AVG(t.total_ticket),2) AS ticket_promedio FROM tickets t JOIN customer c ON t.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY ticket_promedio DESC LIMIT 20",
+      "sql_explicacion": "Calcula AVG del total por ticket por cliente.",
+      "engine": "spark",
+      "engine_razon": "usa CTE / consulta compuesta",
+      "insight": "El resultado principal es CUST0002 con 107.5. Le siguen CUST0001 (75.0), CUST0003 (55.0).",
+      "columns": [
+        "c_customer_id",
+        "c_first_name",
+        "c_last_name",
+        "ticket_promedio"
+      ],
+      "rows": [
+        [
+          "CUST0002",
+          "Beto",
+          "Diaz",
+          107.5
+        ],
+        [
+          "CUST0001",
+          "Ana",
+          "Lopez",
+          75.0
+        ],
+        [
+          "CUST0003",
+          "Cira",
+          "Mora",
+          55.0
+        ],
+        [
+          "CUST0004",
+          "Dino",
+          "Paz",
+          20.0
+        ]
+      ],
+      "time_taken": 0.15,
+      "ok": true
+    },
+    {
+      "n": 7,
+      "question": "¿Cuáles son las ventas por día de la semana?",
+      "intent": {
+        "metric": "suma de ss_net_paid",
+        "dimension": "dia de la semana",
+        "filters": [],
+        "order": "desc",
+        "limit": null,
+        "tables": [
+          "store_sales",
+          "date_dim"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT d.d_day_name, ROUND(SUM(ss.ss_net_paid),2) AS ventas FROM store_sales ss JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_day_name ORDER BY ventas DESC",
+      "sql_explicacion": "Calcula suma de ss_net_paid por dia de la semana.",
+      "engine": "hive",
+      "engine_razon": "agregación simple con joins, sin ventanas",
+      "insight": "El resultado principal es Monday con 290.0. Le siguen Wednesday (125.0), Tuesday (90.0).",
+      "columns": [
+        "d_day_name",
+        "ventas"
+      ],
+      "rows": [
+        [
+          "Monday",
+          290.0
+        ],
+        [
+          "Wednesday",
+          125.0
+        ],
+        [
+          "Tuesday",
+          90.0
+        ]
+      ],
+      "time_taken": 0.13,
+      "ok": true
+    },
+    {
+      "n": 8,
+      "question": "¿Cuáles son los 20 clientes con mayor número de compras?",
+      "intent": {
+        "metric": "COUNT(DISTINCT ss_ticket_number)",
+        "dimension": "cliente",
+        "filters": [
+          "ss_customer_sk IS NOT NULL"
+        ],
+        "order": "desc",
+        "limit": 20,
+        "tables": [
+          "store_sales",
+          "customer"
+        ],
+        "needs_window": false
+      },
+      "sql": "SELECT c.c_customer_id, c.c_first_name, c.c_last_name, COUNT(DISTINCT ss.ss_ticket_number) AS num_compras FROM store_sales ss JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY num_compras DESC LIMIT 20",
+      "sql_explicacion": "Cuenta tickets distintos por cliente y ordena de mayor a menor.",
+      "engine": "hive",
+      "engine_razon": "agregación con join y conteo distinto, sin funciones de ventana",
+      "insight": "El resultado principal es CUST0001 con 2.",
+      "columns": [
+        "c_customer_id",
+        "c_first_name",
+        "c_last_name",
+        "num_compras"
+      ],
+      "rows": [
+        [
+          "CUST0001",
+          "Ana",
+          "Lopez",
+          2
+        ],
+        [
+          "CUST0003",
+          "Cira",
+          "Mora",
+          2
+        ],
+        [
+          "CUST0002",
+          "Beto",
+          "Diaz",
+          2
+        ],
+        [
+          "CUST0004",
+          "Dino",
+          "Paz",
+          1
+        ]
+      ],
+      "time_taken": 1.06,
+      "ok": true
+    },
+    {
+      "n": 9,
+      "question": "¿Cuáles son los productos más vendidos en cada tienda?",
+      "intent": {
+        "metric": "SUM(ss_net_paid)",
+        "dimension": "producto por tienda",
+        "filters": [],
+        "order": "desc",
+        "limit": 5,
+        "tables": [
+          "store_sales",
+          "item",
+          "store"
+        ],
+        "needs_window": true
+      },
+      "sql": "WITH ventas_prod AS ( SELECT s.s_store_name, i.i_product_name,  ROUND(SUM(ss.ss_net_paid), 2) AS ventas  FROM store_sales ss  JOIN item i ON ss.ss_item_sk = i.i_item_sk  JOIN store s ON ss.ss_store_sk = s.s_store_sk  GROUP BY s.s_store_name, i.i_product_name), ranked AS ( SELECT s_store_name, i_product_name, ventas,  RANK() OVER (PARTITION BY s_store_name ORDER BY ventas DESC) AS rk  FROM ventas_prod) SELECT s_store_name, i_product_name, ventas, rk FROM ranked WHERE rk <= 5 ORDER BY s_store_name, rk",
+      "sql_explicacion": "Ranking de productos por ventas dentro de cada tienda (top 5).",
+      "engine": "spark",
+      "engine_razon": "usa función de ventana RANK() con CTE, mejor en Spark",
+      "insight": "El resultado principal es Tienda_Centro con 1.",
+      "columns": [
+        "s_store_name",
+        "i_product_name",
+        "ventas",
+        "rk"
+      ],
+      "rows": [
+        [
+          "Tienda_Centro",
+          "Cafe",
+          260.0,
+          1
+        ],
+        [
+          "Tienda_Centro",
+          "Leche",
+          30.0,
+          2
+        ],
+        [
+          "Tienda_Centro",
+          "Pan",
+          20.0,
+          3
+        ],
+        [
+          "Tienda_Norte",
+          "Cafe",
+          50.0,
+          1
+        ],
+        [
+          "Tienda_Norte",
+          "Te",
+          40.0,
+          2
+        ],
+        [
+          "Tienda_Norte",
+          "Pan",
+          25.0,
+          3
+        ],
+        [
+          "Tienda_Sur",
+          "Leche",
+          60.0,
+          1
+        ],
+        [
+          "Tienda_Sur",
+          "Te",
+          20.0,
+          2
+        ]
+      ],
+      "time_taken": 0.35,
+      "ok": true
+    },
+    {
+      "n": 10,
+      "question": "Dame el ranking de los meses según sus ventas totales.",
+      "intent": {
+        "metric": "SUM(ss_net_paid)",
+        "dimension": "mes",
+        "filters": [],
+        "order": "desc",
+        "limit": null,
+        "tables": [
+          "store_sales",
+          "date_dim"
+        ],
+        "needs_window": true
+      },
+      "sql": "WITH ventas_mes AS ( SELECT d.d_year, d.d_moy, ROUND(SUM(ss.ss_net_paid), 2) AS ventas  FROM store_sales ss  JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk  GROUP BY d.d_year, d.d_moy) SELECT d_year, d_moy, ventas, RANK() OVER (ORDER BY ventas DESC) AS ranking FROM ventas_mes ORDER BY ranking",
+      "sql_explicacion": "Ventas totales por mes y su posición en un ranking descendente.",
+      "engine": "spark",
+      "engine_razon": "ranking global con RANK() sobre la agregación mensual, función de ventana",
+      "insight": "La cifra principal es 1.",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "ventas",
+        "ranking"
+      ],
+      "rows": [
+        [
+          2001,
+          1,
+          290.0,
+          1
+        ],
+        [
+          2002,
+          1,
+          125.0,
+          2
+        ],
+        [
+          2001,
+          2,
+          90.0,
+          3
+        ]
+      ],
+      "time_taken": 0.14,
+      "ok": true
+    }
+  ],
+  "comparison_md": "# Fase 6 — Comparación manual vs agéntico (6.4)\n\n_Correctitud sobre la muestra local: **9/9** preguntas con contraparte manual coinciden (✓ o ≈)._\n\n## Tabla comparativa\n\n| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | Correctitud | Nota | Calidad SQL |\n|---|----------|--------------|--------------|--------------|-------------|------|-------------|\n| 1 | ¿Cuáles son los 5 productos con mayor ingreso? | hive | 1.11 | 0.13 | ✓ | resultados idénticos (vs Q7) | np✓ ij✓ gb✓ ob✓ |\n| 2 | ¿Qué tienda tiene mayores ventas? | hive | 0.16 | 0.13 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q2) | np✓ ij✓ gb✓ ob✓ |\n| 3 | ¿En qué mes se registraron los mayores ingresos? | hive | 1.1 | 0.1 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q3) | np✓ ij✓ gb✓ ob✓ |\n| 4 | ¿Quiénes son los 10 mejores clientes por gasto total? | hive | 0.14 | 0.07 | ✓ | resultados idénticos (vs Q8) | np✓ ij✓ gb✓ ob✓ |\n| 5 | ¿Cuáles son los productos más vendidos por unidades? | hive | 0.11 | — | — | sin contraparte manual | np✗ ij✓ gb✓ ob✓ |\n| 6 | ¿Cuál es el ticket promedio por cliente? | spark | 0.15 | 0.09 | ✓ | resultados idénticos (vs Q6) | np✓ ij✓ gb✓ ob✓ |\n| 7 | ¿Cuáles son las ventas por día de la semana? | hive | 0.13 | 0.08 | ✓ | resultados idénticos (vs Q4) | np✓ ij✓ gb✓ ob✓ |\n| 8 | ¿Cuáles son los 20 clientes con mayor número de compras? | hive | 1.06 | 0.07 | ✓ | resultados idénticos (vs Q1) | np✗ ij✓ gb✓ ob✓ |\n| 9 | ¿Cuáles son los productos más vendidos en cada tienda? | spark | 0.35 | 0.13 | ✓ | resultados idénticos (vs Q5) | np✓ ij✓ gb✓ ob✓ |\n| 10 | Dame el ranking de los meses según sus ventas totales. | spark | 0.14 | 0.09 | ✓ | resultados idénticos (vs Q9) | np✓ ij✓ gb✓ ob✓ |\n\n_Calidad SQL: ✓ = el SQL del agente cumple el check; claves: np=usa ss_net_paid, ij=INNER JOIN, gb=GROUP BY, ob=ORDER BY._\n\n## Ventajas del flujo agéntico\n\n- Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.\n- Rapidez de exploración: de la pregunta al resultado en un paso.\n- Selección automática de motor (Hive/Spark) según la forma de la consulta.\n- Genera además un insight en lenguaje natural sobre el resultado.\n- El contexto de esquema + glosario reduce errores y fija las métricas de negocio.\n\n## Limitaciones del flujo agéntico\n\n- Riesgo de SQL incorrecto o alucinado (columnas/métricas equivocadas).\n- Depende fuertemente del contexto de esquema inyectado (schema_context.py).\n- Costo y latencia del LLM (intención + generación) sobre el tiempo de cómputo.\n- No determinismo: dos corridas pueden producir SQL distinto.\n- Requiere validación humana para análisis críticos (el manual es auditable).\n"
+}
