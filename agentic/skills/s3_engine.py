@@ -11,10 +11,11 @@
 
 SYSTEM = (
     "Eres un arquitecto de datos. Eliges el motor para una consulta sobre un "
-    "clúster EMR con Hive y Spark sobre el MISMO Hive Metastore. Heurística: "
-    "consultas con funciones de ventana (RANK/OVER), CTE pesados o agregaciones "
-    "grandes rinden mejor en Spark; lookups/filtros simples van bien en Hive. "
-    "Respondes SOLO con un objeto JSON."
+    "clúster EMR con Hive y Spark sobre el MISMO Hive Metastore. "
+    "REGLA: Spark es el motor por DEFECTO (mejor en agregaciones, joins, ventanas "
+    "RANK/OVER y CTE). Elige Hive SOLO para lookups o filtros muy simples (sin "
+    "agregación ni joins), donde su menor latencia de arranque conviene. "
+    "Ante la duda, elige spark. Respondes SOLO con un objeto JSON."
 )
 
 _OUT_HINT = (
@@ -24,13 +25,18 @@ _OUT_HINT = (
 
 
 def heuristic(intent, sql):
-    """Propuesta barata, sin LLM. Devuelve (engine, razon)."""
+    """Propuesta barata, sin LLM. Spark por DEFECTO; Hive solo lookups simples."""
     up = sql.upper()
     if intent.get("needs_window") or "OVER (" in up or "OVER(" in up or "RANK(" in up:
-        return "spark", "usa funciones de ventana (RANK/OVER)"
+        return "spark", "usa funciones de ventana (RANK/OVER): mejor en Spark"
     if "WITH " in up:
-        return "spark", "usa CTE / consulta compuesta"
-    return "hive", "agregación simple con joins, sin ventanas"
+        return "spark", "usa CTE / consulta compuesta: mejor en Spark"
+    has_agg = any(k in up for k in
+                  ("GROUP BY", "SUM(", "AVG(", "COUNT(", "MIN(", "MAX("))
+    has_join = " JOIN " in up
+    if not has_agg and not has_join:
+        return "hive", "lookup/filtro simple (sin agregación ni joins): Hive arranca antes"
+    return "spark", "agregación con joins: Spark por defecto"
 
 
 def run(gemini, intent, sql):

@@ -41,6 +41,9 @@ MANUAL_MAP = {
     5: None,  # productos más vendidos x unidad -> sin manual (manual usa ingreso)
     6: 6,     # ticket promedio por cliente     -> Q6 ticket promedio por cliente
     7: 4,     # ventas por día de la semana     -> Q4 ventas por día de la semana
+    8: 1,     # 20 clientes con más compras     -> Q1 top 20 clientes por nº compras
+    9: 5,     # productos más vendidos x tienda -> Q5 top productos por tienda (RANK)
+    10: 9,    # ranking de meses por ventas     -> Q9 ranking mensual de ventas
 }
 
 
@@ -74,13 +77,21 @@ def _top_metric(rows):
 
 def compare_results(agent_rows, manual_rows):
     a, m = _norm_rows(agent_rows), _norm_rows(manual_rows)
+    # El SQL manual puede traer columnas extra de diagnóstico que NO son la
+    # métrica comparada (p.ej. num_tickets en Q6). Recortamos ambos lados al
+    # ancho común para comparar solo dimensiones + métrica, no esos extras.
+    w = min(min((len(r) for r in a), default=0),
+            min((len(r) for r in m), default=0))
+    if w:
+        a = [r[:w] for r in a]
+        m = [r[:w] for r in m]
     if a == m:
         return "EXACTA", "✓", "resultados idénticos"
     if a and len(a) < len(m) and a == m[: len(a)]:
         return "PARCIAL", "✓", f"el agente pidió top-{len(a)}; prefijo coincide con el manual"
     if m and len(m) < len(a) and m == a[: len(m)]:
         return "PARCIAL", "✓", f"el manual es top-{len(m)}; prefijo coincide con el agente"
-    am, mm = _top_metric(agent_rows), _top_metric(manual_rows)
+    am, mm = _top_metric(a), _top_metric(m)
     if am is not None and am == mm:
         return "CABECERA", "≈", f"difieren en filas pero la cifra principal coincide ({am})"
     return "DIFIERE", "✗", f"cabecera agente={am} vs manual={mm}"

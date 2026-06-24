@@ -34,11 +34,14 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"; set +a
 fi
 
-[[ -n "${GEMINI_API_KEY:-}" ]] || {
-  echo "ERROR: falta GEMINI_API_KEY. Obtén una en https://aistudio.google.com/api-keys y:"
-  echo "  export GEMINI_API_KEY=..."
-  exit 1
-}
+# Default = opencode (no necesita key). Solo el backend gemini exige GEMINI_API_KEY.
+if [[ "${LLM_BACKEND:-opencode}" == "gemini" || "${LLM_BACKEND:-opencode}" == "google" ]]; then
+  [[ -n "${GEMINI_API_KEY:-}" ]] || {
+    echo "ERROR: backend gemini sin GEMINI_API_KEY. Obtén una en https://aistudio.google.com/api-keys y:"
+    echo "  export GEMINI_API_KEY=...    (o quita LLM_BACKEND para usar opencode, el default)"
+    exit 1
+  }
+fi
 
 # Launcher que fija JAVA_HOME (jdk4py) antes de correr agent.py (igual que verify_local).
 # Nota: las X van al FINAL (macOS mktemp no sustituye si hay sufijo .py después).

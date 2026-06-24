@@ -9,3 +9,6 @@
 ¿Cuáles son los productos más vendidos por unidades?
 ¿Cuál es el ticket promedio por cliente?
 ¿Cuáles son las ventas por día de la semana?
+¿Cuáles son los 20 clientes con mayor número de compras?
+¿Cuáles son los productos más vendidos en cada tienda?
+Dame el ranking de los meses según sus ventas totales.

@@ -65,13 +65,40 @@ def _run_emr(sql, engine):
         ["bash", helper, engine, sql],
         capture_output=True, text=True)
     out = proc.stdout
+    cols, rows = _parse_tsv(out)
     return {
-        "columns": [],            # parseo fino de stdout: se afina en la Fase 4
-        "rows": [],
-        "time_taken": _parse_time_taken(out, round(time.time() - start, 2)),
+        "columns": cols,
+        "rows": rows,
+        # hive/spark-sql imprimen "Time taken" en stderr; busca en ambos.
+        "time_taken": _parse_time_taken(out + "\n" + proc.stderr,
+                                        round(time.time() - start, 2)),
         "rc": proc.returncode,
         "raw_stdout": out + ("\n[stderr]\n" + proc.stderr if proc.stderr else ""),
     }
+
+
+def _coerce(v):
+    """'123' -> 123, '4.5' -> 4.5, 'NULL'/'' -> None, resto -> str."""
+    s = (v or "").strip()
+    if s in ("", "NULL", "null", "\\N"):
+        return None
+    try:
+        f = float(s)
+        return int(f) if f.is_integer() else f
+    except ValueError:
+        return s
+
+
+def _parse_tsv(out):
+    """Salida de hive/spark-sql -S con cabecera: TSV (1ª línea = columnas)."""
+    lines = [ln for ln in out.splitlines() if ln.strip() != ""]
+    lines = [ln for ln in lines
+             if not ln.lower().startswith(("time taken", "fetched", "warning:"))]
+    if not lines:
+        return [], []
+    columns = lines[0].split("\t")
+    rows = [[_coerce(c) for c in ln.split("\t")] for ln in lines[1:]]
+    return columns, rows
 
 
 def _parse_time_taken(text, fallback):

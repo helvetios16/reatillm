@@ -21,11 +21,12 @@ import argparse
 import json
 import os
 import sys
+import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)  # para importar schema_context y skills/
 
-from gemini_client import GeminiClient, GeminiError  # noqa: E402
+from llm import make_client, GeminiError  # noqa: E402  (backend gemini|opencode)
 from skills import s1_intent, s2_sql, s3_engine, s4_execute, s5_present  # noqa: E402
 
 _ROOT = os.path.dirname(_HERE)
@@ -44,18 +45,33 @@ def load_questions(path):
     return qs
 
 
-def process(question, n, gemini, target, spark):
-    """Corre las 5 skills sobre una pregunta. Devuelve el registro (dict)."""
+def process(question, n, gemini, target, spark, force_engine=None):
+    """Corre las 5 skills sobre una pregunta. Devuelve el registro (dict).
+
+    force_engine: si es 'hive' o 'spark', el usuario elige el motor y se SALTA la
+    Skill 3 (selección automática). Si es None, decide el agente (S3).
+    """
     record = {"n": n, "question": question, "target": target}
+    llm_s = 0.0  # tiempo acumulado en llamadas al LLM (S1, S2, S3 si aplica, S5)
     try:
+        t0 = time.time()
         intent = s1_intent.run(gemini, question)
+        llm_s += time.time() - t0
         record["intent"] = intent
 
+        t0 = time.time()
         sql_out = s2_sql.run(gemini, question, intent)
+        llm_s += time.time() - t0
         record["sql"] = sql_out["sql"]
         record["sql_explicacion"] = sql_out["explicacion"]
 
-        engine_out = s3_engine.run(gemini, intent, sql_out["sql"])
+        if force_engine in ("hive", "spark"):
+            engine_out = {"engine": force_engine,
+                          "razon": "motor elegido manualmente por el usuario"}
+        else:
+            t0 = time.time()
+            engine_out = s3_engine.run(gemini, intent, sql_out["sql"])
+            llm_s += time.time() - t0
         record["engine"] = engine_out["engine"]
         record["engine_razon"] = engine_out["razon"]
 
@@ -65,9 +81,13 @@ def process(question, n, gemini, target, spark):
         record["result"] = {k: result[k] for k in
                             ("columns", "rows", "time_taken", "rc", "raw_stdout")}
 
+        t0 = time.time()
         pres = s5_present.run(gemini, question, result)
+        llm_s += time.time() - t0
         record["tabla_md"] = pres["tabla_md"]
         record["insight"] = pres["insight"]
+        record["llm_seconds"] = round(llm_s, 2)        # LLM (intención+SQL+insight)
+        record["engine_seconds"] = result["time_taken"]  # motor (ejecución S4)
         record["ok"] = (result["rc"] == 0)
     except Exception as e:
         record["ok"] = False
@@ -115,7 +135,7 @@ def main():
         return 1
 
     try:
-        gemini = GeminiClient()
+        gemini = make_client()
     except GeminiError as e:
         print(f"ERROR: {e}")
         return 2

@@ -30,10 +30,14 @@ if [[ -z "$ENGINE" || -z "$SQL" ]]; then
   exit 2
 fi
 case "$ENGINE" in
-  hive)  REMOTE_CMD=(hive -S -e "$SQL") ;;
-  spark) REMOTE_CMD=(spark-sql -S -e "$SQL") ;;
+  hive)  TOOL="hive";      HDR="--hiveconf hive.cli.print.header=true" ;;
+  spark) TOOL="spark-sql"; HDR="--conf spark.sql.cli.print.header=true" ;;
   *) log "motor inválido: $ENGINE (usa hive|spark)"; exit 2 ;;
 esac
+
+# El SQL viaja en base64 (alfabeto shell-seguro) para no romper el quoting al
+# re-parsearlo el shell remoto vía SSH; se decodifica a un .sql y se corre con -f.
+SQL_B64=$(printf '%s' "$SQL" | base64 | tr -d '\n')
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_FILE="$ROOT_DIR/.emr_state"
@@ -81,9 +85,12 @@ push_key() {
 }
 
 # ── Ejecutar el SQL en el master; SOLO el resultado va a stdout ───────────────
-log "  Ejecutando consulta en el master..."
+# Decodifica el base64 a un .sql remoto y lo corre con -f (sin problemas de
+# quoting). El .sql se borra siempre; el rc es el del motor.
+REMOTE="F=\$(mktemp /tmp/retaillm_q.XXXXXX.sql); echo $SQL_B64 | base64 -d > \$F; $TOOL -S $HDR -f \$F; rc=\$?; rm -f \$F; exit \$rc"
+log "  Ejecutando consulta en el master ($TOOL -f, con cabecera)..."
 push_key
-ssh "${SSH_OPTS[@]}" "hadoop@$MASTER_DNS" "${REMOTE_CMD[@]}"
+ssh "${SSH_OPTS[@]}" "hadoop@$MASTER_DNS" "$REMOTE"
 RC=$?
 log "  rc=$RC"
 exit $RC
