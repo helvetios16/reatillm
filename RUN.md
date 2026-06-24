@@ -25,10 +25,10 @@ GEMINI_API_KEY=...
 
 ---
 
-## 1. Interfaz Vue — dashboard + consulta en vivo (local, sin AWS)
+## 1. Interfaz Vue — dashboard + chat de consulta en vivo
 
-La forma más rápida de ver y usar todo. El backend ejecuta el agente sobre la **muestra
-local** (`data/tpcds/sample/`); el dashboard lee resultados ya calculados.
+App **Vue 3 + TS** (paleta otoñal). El backend (`retail/server.py`) reúsa el pipeline del
+agente y sirve la app compilada en un solo puerto.
 
 ```bash
 cd retail
@@ -37,12 +37,27 @@ bun run build               # compila la app a dist/
 bash run_ui.sh              # backend + app -> http://localhost:8000
 ```
 
-- **💬 Consulta en vivo** — escribe (o clic en un ejemplo) y el agente responde
-  (NL → intención → SQL → motor → ejecución → insight). El panel lista qué datos hay y
-  qué se puede preguntar.
-- **6.3 / 6.2 / 6.4** — rendimiento Hive vs Spark, capa agéntica, manual vs agéntico.
+Pestañas:
+- **💬 Consulta en vivo** — un **chat**: escribes (o clic en un ejemplo) y el agente responde
+  con el **SQL generado**, gráfico, tabla e insight. **Tú eliges el motor** con el selector
+  (⚡ Spark por defecto / 🐝 Hive) — no hay "auto". Cada respuesta muestra el desglose de
+  tiempo **🧠 LLM vs ⚙️ motor**, y el SQL se guarda en `results/live_sql/<fecha>_<motor>.sql`.
+- **Rendimiento Hive vs Spark · Capa agéntica · Manual vs agéntico** — leen
+  `retail/public/data/dashboard.json` (lo genera `build_data.py`).
 
 Desarrollo con hot-reload: `bun dev` en otra terminal (proxa `/api` al backend).
+
+### Dónde ejecuta el agente: `UI_TARGET` (local | emr)
+
+| `UI_TARGET` | Ejecución del SQL | Requiere |
+|-------------|-------------------|----------|
+| `local` (**default**) | PySpark sobre la muestra `data/tpcds/sample/` | nada (uv + pyspark) |
+| `emr` | en el **clúster AWS** (lee `.emr_state`, vía `run_remote.sh`) | clúster vivo (sección 3) |
+
+```bash
+bash run_ui.sh                       # local (muestra), sin AWS
+UI_TARGET=emr bash run_ui.sh         # consulta en vivo sobre el clúster EMR (datos reales)
+```
 
 ### Backend LLM (opencode por defecto)
 
@@ -55,7 +70,8 @@ Desarrollo con hot-reload: `bun dev` en otra terminal (proxa `/api` al backend).
 bash run_ui.sh                          # opencode (default)
 LLM_BACKEND=gemini bash run_ui.sh       # Gemini (necesita key)
 OPENCODE_MODEL=opencode/mimo-v2.5-free bash run_ui.sh   # otro modelo
-```
+# combinables, p.ej. UI en EMR con opencode:
+UI_TARGET=emr bash run_ui.sh
 
 ---
 
@@ -148,11 +164,11 @@ retaillm/
 │   ├── schema_context.py · run_agent.sh · run_remote.sh
 │   └── skills/ (s1..s5)
 ├── comparison/               # 6.4: compare.py + run_compare.sh
-├── retail/                   # interfaz Vue 3 + TS (dashboard + consulta en vivo)
+├── retail/                   # interfaz Vue 3 + TS (chat + dashboard)
 │   ├── build_data.py · server.py · run_ui.sh
-│   └── src/{views,components,stores,lib}
+│   └── src/{views,components,stores,lib,types,assets}
 ├── data/tpcds/sample/        # muestra local para validación offline
-└── results/                  # salidas (gitignored): hive/ spark/ agentic/ comparison/
+└── results/                  # salidas (gitignored): hive/ spark/ agentic/ comparison/ live_sql/
 ```
 
 ---
