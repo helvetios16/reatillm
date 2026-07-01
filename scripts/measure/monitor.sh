@@ -183,7 +183,7 @@ scp "${SSH_OPTS[@]}" "$REMOTE_SH" "hadoop@$MASTER_DNS:/tmp/monitor_remote.sh"
 
 echo "  Ejecutando + midiendo (verás la salida del job en vivo)..."
 echo "  ────────────────────────────────────────────────────────"
-ssh "${SSH_OPTS[@]}" -t "hadoop@$MASTER_DNS" "bash /tmp/monitor_remote.sh" || true
+ssh "${SSH_OPTS[@]}" "hadoop@$MASTER_DNS" "bash /tmp/monitor_remote.sh" || true
 echo "  ────────────────────────────────────────────────────────"
 
 # ── Traer los resultados (re-empuja la key: el job pudo durar >60s) ──────────

@@ -49,7 +49,7 @@ bun lint
 
 ---
 
-## retaillm — Dashboard + consulta en vivo (Fase 7)
+## retaillm — Dashboard + consulta en vivo
 
 Interfaz del proyecto: visualiza los resultados (6.3 rendimiento, 6.2 agéntico, 6.4
 comparación) y permite **consultar al agente en lenguaje natural** desde el navegador.

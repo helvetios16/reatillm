@@ -14,7 +14,7 @@ const html = computed(() => {
   <section class="view">
     <h2 class="section-title">Comparación manual vs agéntico</h2>
     <p class="section-note">
-      El mismo SQL escrito a mano (Fase 3) frente al generado por el LLM (Fase 5), re-ejecutados
+      El mismo SQL escrito a mano frente al generado por el LLM, re-ejecutados
       sobre la misma muestra. Veredicto de correctitud, calidad del SQL y ventajas/limitaciones.
     </p>
 

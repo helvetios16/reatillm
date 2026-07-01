@@ -4,74 +4,74 @@
       {
         "q": 1,
         "label": "Top 20 clientes por numero de compras",
-        "hive_s": 61.0,
-        "spark_s": null
+        "hive_s": 78.0,
+        "spark_s": 51.7
       },
       {
         "q": 2,
         "label": "Ventas por tienda",
-        "hive_s": 17.0,
-        "spark_s": null
+        "hive_s": 52.0,
+        "spark_s": 18.9
       },
       {
         "q": 3,
         "label": "Ventas por mes",
-        "hive_s": 11.0,
-        "spark_s": null
+        "hive_s": 50.0,
+        "spark_s": 18.7
       },
       {
         "q": 4,
         "label": "Ventas por dia de la semana",
-        "hive_s": 10.0,
-        "spark_s": null
+        "hive_s": 47.0,
+        "spark_s": 17.7
       },
       {
         "q": 5,
         "label": "Top productos por tienda",
-        "hive_s": 15.0,
-        "spark_s": null
+        "hive_s": 83.0,
+        "spark_s": 26.8
       },
       {
         "q": 6,
         "label": "Ticket promedio por cliente",
-        "hive_s": 11.0,
-        "spark_s": null
+        "hive_s": 67.0,
+        "spark_s": 21.1
       },
       {
         "q": 7,
         "label": "Productos con mayor ingreso",
-        "hive_s": 9.0,
-        "spark_s": null
+        "hive_s": 59.0,
+        "spark_s": 19.7
       },
       {
         "q": 8,
         "label": "Top clientes por gasto total",
-        "hive_s": 10.0,
-        "spark_s": null
+        "hive_s": 51.0,
+        "spark_s": 21.8
       },
       {
         "q": 9,
         "label": "Ranking mensual de ventas",
-        "hive_s": 8.0,
-        "spark_s": null
+        "hive_s": 50.0,
+        "spark_s": 16.3
       }
     ],
     "cpu": {
-      "hive_pct": 99.5,
-      "spark_pct": null
+      "hive_pct": 100.0,
+      "spark_pct": 100.0
     },
     "mem": {
-      "hive_used_mib": 4580.2,
-      "spark_used_mib": null,
+      "hive_used_mib": 4972.0,
+      "spark_used_mib": 5384.4,
       "total_mib": 7942.1
     },
     "totals": {
-      "hive_s": 152.0,
-      "spark_s": null
+      "hive_s": 537.0,
+      "spark_s": 212.7
     },
     "source": {
-      "hive": "20260623-204406",
-      "spark": "20260623-204803"
+      "hive": "20260624-095016",
+      "spark": "20260624-100047"
     }
   },
   "agentic": [
@@ -578,5 +578,5 @@
       "ok": true
     }
   ],
-  "comparison_md": "# Fase 6 — Comparación manual vs agéntico (6.4)\n\n_Correctitud sobre la muestra local: **9/9** preguntas con contraparte manual coinciden (✓ o ≈)._\n\n## Tabla comparativa\n\n| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | Correctitud | Nota | Calidad SQL |\n|---|----------|--------------|--------------|--------------|-------------|------|-------------|\n| 1 | ¿Cuáles son los 5 productos con mayor ingreso? | hive | 1.11 | 0.13 | ✓ | resultados idénticos (vs Q7) | np✓ ij✓ gb✓ ob✓ |\n| 2 | ¿Qué tienda tiene mayores ventas? | hive | 0.16 | 0.13 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q2) | np✓ ij✓ gb✓ ob✓ |\n| 3 | ¿En qué mes se registraron los mayores ingresos? | hive | 1.1 | 0.1 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q3) | np✓ ij✓ gb✓ ob✓ |\n| 4 | ¿Quiénes son los 10 mejores clientes por gasto total? | hive | 0.14 | 0.07 | ✓ | resultados idénticos (vs Q8) | np✓ ij✓ gb✓ ob✓ |\n| 5 | ¿Cuáles son los productos más vendidos por unidades? | hive | 0.11 | — | — | sin contraparte manual | np✗ ij✓ gb✓ ob✓ |\n| 6 | ¿Cuál es el ticket promedio por cliente? | spark | 0.15 | 0.09 | ✓ | resultados idénticos (vs Q6) | np✓ ij✓ gb✓ ob✓ |\n| 7 | ¿Cuáles son las ventas por día de la semana? | hive | 0.13 | 0.08 | ✓ | resultados idénticos (vs Q4) | np✓ ij✓ gb✓ ob✓ |\n| 8 | ¿Cuáles son los 20 clientes con mayor número de compras? | hive | 1.06 | 0.07 | ✓ | resultados idénticos (vs Q1) | np✗ ij✓ gb✓ ob✓ |\n| 9 | ¿Cuáles son los productos más vendidos en cada tienda? | spark | 0.35 | 0.13 | ✓ | resultados idénticos (vs Q5) | np✓ ij✓ gb✓ ob✓ |\n| 10 | Dame el ranking de los meses según sus ventas totales. | spark | 0.14 | 0.09 | ✓ | resultados idénticos (vs Q9) | np✓ ij✓ gb✓ ob✓ |\n\n_Calidad SQL: ✓ = el SQL del agente cumple el check; claves: np=usa ss_net_paid, ij=INNER JOIN, gb=GROUP BY, ob=ORDER BY._\n\n## Ventajas del flujo agéntico\n\n- Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.\n- Rapidez de exploración: de la pregunta al resultado en un paso.\n- Selección automática de motor (Hive/Spark) según la forma de la consulta.\n- Genera además un insight en lenguaje natural sobre el resultado.\n- El contexto de esquema + glosario reduce errores y fija las métricas de negocio.\n\n## Limitaciones del flujo agéntico\n\n- Riesgo de SQL incorrecto o alucinado (columnas/métricas equivocadas).\n- Depende fuertemente del contexto de esquema inyectado (schema_context.py).\n- Costo y latencia del LLM (intención + generación) sobre el tiempo de cómputo.\n- No determinismo: dos corridas pueden producir SQL distinto.\n- Requiere validación humana para análisis críticos (el manual es auditable).\n"
+  "comparison_md": "# Comparación manual vs agéntico (6.4)\n\n_Correctitud sobre la muestra local: **9/9** preguntas con contraparte manual coinciden (✓ o ≈)._\n\n## Tabla comparativa\n\n| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | Correctitud | Nota | Calidad SQL |\n|---|----------|--------------|--------------|--------------|-------------|------|-------------|\n| 1 | ¿Cuáles son los 5 productos con mayor ingreso? | hive | 1.11 | 0.13 | ✓ | resultados idénticos (vs Q7) | np✓ ij✓ gb✓ ob✓ |\n| 2 | ¿Qué tienda tiene mayores ventas? | hive | 0.16 | 0.13 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q2) | np✓ ij✓ gb✓ ob✓ |\n| 3 | ¿En qué mes se registraron los mayores ingresos? | hive | 1.1 | 0.1 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q3) | np✓ ij✓ gb✓ ob✓ |\n| 4 | ¿Quiénes son los 10 mejores clientes por gasto total? | hive | 0.14 | 0.07 | ✓ | resultados idénticos (vs Q8) | np✓ ij✓ gb✓ ob✓ |\n| 5 | ¿Cuáles son los productos más vendidos por unidades? | hive | 0.11 | — | — | sin contraparte manual | np✗ ij✓ gb✓ ob✓ |\n| 6 | ¿Cuál es el ticket promedio por cliente? | spark | 0.15 | 0.09 | ✓ | resultados idénticos (vs Q6) | np✓ ij✓ gb✓ ob✓ |\n| 7 | ¿Cuáles son las ventas por día de la semana? | hive | 0.13 | 0.08 | ✓ | resultados idénticos (vs Q4) | np✓ ij✓ gb✓ ob✓ |\n| 8 | ¿Cuáles son los 20 clientes con mayor número de compras? | hive | 1.06 | 0.07 | ✓ | resultados idénticos (vs Q1) | np✗ ij✓ gb✓ ob✓ |\n| 9 | ¿Cuáles son los productos más vendidos en cada tienda? | spark | 0.35 | 0.13 | ✓ | resultados idénticos (vs Q5) | np✓ ij✓ gb✓ ob✓ |\n| 10 | Dame el ranking de los meses según sus ventas totales. | spark | 0.14 | 0.09 | ✓ | resultados idénticos (vs Q9) | np✓ ij✓ gb✓ ob✓ |\n\n_Calidad SQL: ✓ = el SQL del agente cumple el check; claves: np=usa ss_net_paid, ij=INNER JOIN, gb=GROUP BY, ob=ORDER BY._\n\n## Ventajas del flujo agéntico\n\n- Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.\n- Rapidez de exploración: de la pregunta al resultado en un paso.\n- Selección automática de motor (Hive/Spark) según la forma de la consulta.\n- Genera además un insight en lenguaje natural sobre el resultado.\n- El contexto de esquema + glosario reduce errores y fija las métricas de negocio.\n\n## Limitaciones del flujo agéntico\n\n- Riesgo de SQL incorrecto o alucinado (columnas/métricas equivocadas).\n- Depende fuertemente del contexto de esquema inyectado (schema_context.py).\n- Costo y latencia del LLM (intención + generación) sobre el tiempo de cómputo.\n- No determinismo: dos corridas pueden producir SQL distinto.\n- Requiere validación humana para análisis críticos (el manual es auditable).\n"
 }

@@ -32,6 +32,7 @@ REGION="us-east-1"
 KEY_PAIR=""
 CORE_COUNT=4
 INSTANCE_TYPE="m4.large"
+MASTER_EBS_GB=0   # 0 = usar default EMR; >0 = añadir EBS extra al master
 DO_SETUP=1
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DDL_LOCAL="$ROOT_DIR/warehouse/hive/ddl/setup.hql"
@@ -44,9 +45,10 @@ while [[ $# -gt 0 ]]; do
     --bucket)        BUCKET="$2";        shift 2 ;;
     --region)        REGION="$2";        shift 2 ;;
     --key-pair)      KEY_PAIR="$2";      shift 2 ;;
-    --core-count)    CORE_COUNT="$2";    shift 2 ;;
-    --instance-type) INSTANCE_TYPE="$2"; shift 2 ;;
-    --no-setup)      DO_SETUP=0;         shift   ;;
+    --core-count)     CORE_COUNT="$2";     shift 2 ;;
+    --instance-type)  INSTANCE_TYPE="$2"; shift 2 ;;
+    --master-ebs-gb)  MASTER_EBS_GB="$2"; shift 2 ;;
+    --no-setup)       DO_SETUP=0;         shift   ;;
     -h|--help)       sed -n '2,33p' "$0"; exit 0 ;;
     *) shift ;;
   esac
@@ -68,15 +70,20 @@ aws sts get-caller-identity --query 'Account' --output text > /dev/null || {
   exit 1
 }
 
-# ── Verificar datos en S3 (al menos store_sales) ──────────────────────────────
-echo "Verificando datos TPC-DS en S3..."
-if ! aws s3 ls "s3://$BUCKET/raw/store_sales/" >/dev/null 2>&1; then
-  echo "ERROR: no hay datos en s3://$BUCKET/raw/store_sales/"
-  echo "Genera primero el dataset:  bash scripts/data/generate_tpcds.sh --bucket $BUCKET"
-  exit 1
+# ── Verificar datos en S3 (omitir con --no-setup: los datos se generarán después) ─
+if [[ "$DO_SETUP" -eq 1 ]]; then
+  echo "Verificando datos TPC-DS en S3..."
+  if ! aws s3 ls "s3://$BUCKET/raw/store_sales/" >/dev/null 2>&1; then
+    echo "ERROR: no hay datos en s3://$BUCKET/raw/store_sales/"
+    echo "Genera primero el dataset:  bash scripts/data/generate_tpcds.sh --bucket $BUCKET"
+    exit 1
+  fi
+  echo "✓ raw/store_sales/ encontrado."
+  echo ""
+else
+  echo "(verificación de datos S3 omitida con --no-setup)"
+  echo ""
 fi
-echo "✓ raw/store_sales/ encontrado."
-echo ""
 
 # ── Subir artefactos existentes a S3 (idempotente) ────────────────────────────
 echo "[ 1/4 ] Subiendo artefactos a S3 (los que existan)..."
@@ -169,21 +176,44 @@ if [[ -n "$KEY_PAIR" ]]; then
   echo "        Key pair : $KEY_PAIR"
 fi
 
-CLUSTER_ID=$(aws emr create-cluster \
-  --name "retaillm-Hive-Spark" \
-  --release-label emr-7.0.0 \
-  --applications Name=Hadoop Name=Hive Name=Spark \
-  --instance-groups \
-    "InstanceGroupType=MASTER,InstanceCount=1,InstanceType=$INSTANCE_TYPE" \
-    "InstanceGroupType=CORE,InstanceCount=$CORE_COUNT,InstanceType=$INSTANCE_TYPE" \
-  --service-role EMR_DefaultRole \
-  --ec2-attributes "$EC2_ATTRS" \
-  --region "$REGION" \
-  --log-uri "s3://$BUCKET/logs/" \
-  --no-auto-terminate \
-  --enable-debugging \
-  --query 'ClusterId' \
-  --output text)
+# Construir la especificación de instance-groups (JSON cuando se pide EBS extra)
+if [[ "$MASTER_EBS_GB" -gt 0 ]]; then
+  INSTANCE_GROUPS_JSON="[
+    {\"InstanceGroupType\":\"MASTER\",\"InstanceCount\":1,\"InstanceType\":\"$INSTANCE_TYPE\",
+     \"EbsConfiguration\":{\"EbsBlockDeviceConfigs\":[{\"VolumeSpecification\":{\"SizeInGB\":$MASTER_EBS_GB,\"VolumeType\":\"gp2\"},\"VolumesPerInstance\":1}]}},
+    {\"InstanceGroupType\":\"CORE\",\"InstanceCount\":$CORE_COUNT,\"InstanceType\":\"$INSTANCE_TYPE\"}
+  ]"
+  echo "        Master EBS : ${MASTER_EBS_GB} GB extra (gp2)"
+  CLUSTER_ID=$(aws emr create-cluster \
+    --name "retaillm-Hive-Spark" \
+    --release-label emr-7.0.0 \
+    --applications Name=Hadoop Name=Hive Name=Spark \
+    --instance-groups "$INSTANCE_GROUPS_JSON" \
+    --service-role EMR_DefaultRole \
+    --ec2-attributes "$EC2_ATTRS" \
+    --region "$REGION" \
+    --log-uri "s3://$BUCKET/logs/" \
+    --no-auto-terminate \
+    --enable-debugging \
+    --query 'ClusterId' \
+    --output text)
+else
+  CLUSTER_ID=$(aws emr create-cluster \
+    --name "retaillm-Hive-Spark" \
+    --release-label emr-7.0.0 \
+    --applications Name=Hadoop Name=Hive Name=Spark \
+    --instance-groups \
+      "InstanceGroupType=MASTER,InstanceCount=1,InstanceType=$INSTANCE_TYPE" \
+      "InstanceGroupType=CORE,InstanceCount=$CORE_COUNT,InstanceType=$INSTANCE_TYPE" \
+    --service-role EMR_DefaultRole \
+    --ec2-attributes "$EC2_ATTRS" \
+    --region "$REGION" \
+    --log-uri "s3://$BUCKET/logs/" \
+    --no-auto-terminate \
+    --enable-debugging \
+    --query 'ClusterId' \
+    --output text)
+fi
 
 echo "        Cluster ID: $CLUSTER_ID"
 

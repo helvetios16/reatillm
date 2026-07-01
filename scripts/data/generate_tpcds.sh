@@ -253,7 +253,7 @@ echo "[ 4/5 ] Generando y subiendo (verás el log en vivo; puede tardar 10-20 mi
 echo "        ────────────────────────────────────────────────────────"
 push_key
 scp "${SSH_OPTS[@]}" "$REMOTE_SH" "$OS_USER@$HOST:/tmp/gen.sh"
-ssh "${SSH_OPTS[@]}" -t "$OS_USER@$HOST" "bash /tmp/gen.sh '$BUCKET' '$SCALE' '$PARALLEL'"
+ssh "${SSH_OPTS[@]}" "$OS_USER@$HOST" "bash /tmp/gen.sh '$BUCKET' '$SCALE' '$PARALLEL'"
 echo "        ────────────────────────────────────────────────────────"
 
 # ── Verificar en S3 desde el Mac ──────────────────────────────────────────────
