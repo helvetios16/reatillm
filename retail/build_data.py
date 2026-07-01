@@ -133,6 +133,7 @@ def build_agentic():
         except (OSError, json.JSONDecodeError):
             continue
         res = r.get("result", {}) or {}
+        rows = res.get("rows", [])
         recs.append({
             "n": r.get("n"),
             "question": r.get("question", ""),
@@ -143,7 +144,12 @@ def build_agentic():
             "engine_razon": r.get("engine_razon", ""),
             "insight": r.get("insight", ""),
             "columns": res.get("columns", []),
-            "rows": res.get("rows", []),
+            # El front (ResultCard.vue) solo muestra las primeras 50; a escala
+            # SF10 algunas preguntas del agente devuelven cientos de miles de
+            # filas (sin LIMIT), así que se recorta el JSON y se guarda el
+            # total real aparte para no inflar el dashboard (llegó a 64 MB).
+            "rows": rows[:100],
+            "total_rows": len(rows),
             "time_taken": res.get("time_taken"),
             "ok": r.get("ok", False),
         })

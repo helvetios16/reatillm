@@ -55,7 +55,7 @@ const totalTime = computed(() => {
         <pre class="sql">{{ rec.sql }}</pre>
 
         <button v-if="rec.rows?.length" class="link-btn" @click="showData = !showData">
-          {{ showData ? '▾' : '▸' }} Tabla de datos ({{ rec.rows.length }} filas)
+          {{ showData ? '▾' : '▸' }} Tabla de datos ({{ rec.total_rows ?? rec.rows.length }} filas{{ (rec.total_rows ?? rec.rows.length) > rec.rows.length ? `, mostrando ${rec.rows.length}` : '' }})
         </button>
         <div v-show="showData" class="table-wrap">
           <table class="md">

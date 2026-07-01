@@ -20,6 +20,7 @@
 import glob
 import json
 import os
+import re
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +31,7 @@ sys.path.insert(0, os.path.join(_ROOT, "queries", "spark"))
 AGENTIC_DIR = os.path.join(_ROOT, "results", "agentic")
 SAMPLE_DIR = os.path.join(_ROOT, "data", "tpcds", "sample")
 OUT_DIR = os.path.join(_ROOT, "results", "comparison")
+HIVE_RESULTS_DIR = os.path.join(_ROOT, "results", "hive")
 
 # Mapeo pregunta del agente (índice en agentic/questions.txt) -> id de consulta
 # manual en queries/spark/queries.py (QUERIES). None = sin contraparte manual.
@@ -76,22 +78,27 @@ def _top_metric(rows):
 
 
 def compare_results(agent_rows, manual_rows):
-    a, m = _norm_rows(agent_rows), _norm_rows(manual_rows)
+    a0, m0 = _norm_rows(agent_rows), _norm_rows(manual_rows)
     # El SQL manual puede traer columnas extra de diagnóstico que NO son la
     # métrica comparada (p.ej. num_tickets en Q6). Recortamos ambos lados al
     # ancho común para comparar solo dimensiones + métrica, no esos extras.
-    w = min(min((len(r) for r in a), default=0),
-            min((len(r) for r in m), default=0))
+    w = min(min((len(r) for r in a0), default=0),
+            min((len(r) for r in m0), default=0))
+    a, m = a0, m0
     if w:
-        a = [r[:w] for r in a]
-        m = [r[:w] for r in m]
+        a = [r[:w] for r in a0]
+        m = [r[:w] for r in m0]
     if a == m:
         return "EXACTA", "✓", "resultados idénticos"
     if a and len(a) < len(m) and a == m[: len(a)]:
         return "PARCIAL", "✓", f"el agente pidió top-{len(a)}; prefijo coincide con el manual"
     if m and len(m) < len(a) and m == a[: len(m)]:
         return "PARCIAL", "✓", f"el manual es top-{len(m)}; prefijo coincide con el agente"
-    am, mm = _top_metric(a), _top_metric(m)
+    # Cifra cabecera SIEMPRE sobre la fila SIN recortar: el recorte al ancho
+    # común puede tirar justo la columna de la métrica (p.ej. si el manual
+    # tiene una columna extra AL INICIO, como el año en Q3, o al final, como
+    # el conteo en Q8) dejando una celda no numérica como "última celda".
+    am, mm = _top_metric(a0), _top_metric(m0)
     if am is not None and am == mm:
         return "CABECERA", "≈", f"difieren en filas pero la cifra principal coincide ({am})"
     return "DIFIERE", "✗", f"cabecera agente={am} vs manual={mm}"
@@ -126,6 +133,52 @@ def run_local(sql, spark):
     return s4_execute.run(sql, "spark", "local", spark=spark)
 
 
+# ── manual REAL sobre SF10: parsea el job.out de la corrida Hive 6.3 ──────
+# (evita reabrir el clúster: results/hive/<ts>/job.out ya tiene las filas y
+# los tiempos de las mismas 9 consultas manuales corridas sobre los datos
+# reales en S3, la misma corrida que alimenta la pestaña "Rendimiento").
+def load_manual_emr():
+    dirs = sorted(d for d in glob.glob(os.path.join(HIVE_RESULTS_DIR, "*")) if os.path.isdir(d))
+    if not dirs:
+        return {}, {}, None
+    run_dir = dirs[-1]
+    try:
+        with open(os.path.join(run_dir, "job.out"), encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return {}, {}, None
+
+    def secs(ts):
+        h, m, s = (int(x) for x in ts.split(":"))
+        return h * 3600 + m * 60 + s
+
+    rows_by_q, markers = {}, []
+    cur_q, cur_rows, last_ts = None, [], None
+    for line in text.splitlines():
+        mk = re.match(r"^\[(\d\d:\d\d:\d\d)\]\s*=== Q(\d+):.*?===\s*$", line)
+        if mk:
+            if cur_q is not None:
+                rows_by_q[cur_q] = cur_rows
+            cur_q, cur_rows = int(mk.group(2)), []
+            markers.append((cur_q, secs(mk.group(1))))
+            continue
+        m2 = re.match(r"^\[(\d\d:\d\d:\d\d)\]\s?(.*)$", line)
+        if m2:
+            last_ts = secs(m2.group(1))
+            content = m2.group(2)
+            if cur_q is not None and content.strip():
+                cur_rows.append(content.split("\t"))
+    if cur_q is not None:
+        rows_by_q[cur_q] = cur_rows
+
+    times_by_q = {}
+    for i, (q, t0) in enumerate(markers):
+        t1 = markers[i + 1][1] if i + 1 < len(markers) else last_ts
+        if t1 is not None:
+            times_by_q[q] = round(float(t1 - t0), 1)
+    return rows_by_q, times_by_q, os.path.basename(run_dir)
+
+
 # ── secciones cualitativas (no dependen de datos) ─────────────────────────
 VENTAJAS = [
     "Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.",
@@ -143,7 +196,7 @@ LIMITACIONES = [
 ]
 
 
-def build_report(rows_md, n_ok, n_cmp, ran):
+def build_report(rows_md, n_ok, n_cmp, ran, mode="local", hive_src=None):
     lines = []
     lines.append("# Fase 6 — Comparación manual vs agéntico (6.4)\n")
     if not ran:
@@ -151,8 +204,15 @@ def build_report(rows_md, n_ok, n_cmp, ran):
         lines.append("> Corre primero `bash agentic/run_agent.sh --target local` (necesita "
                      "`GEMINI_API_KEY`).\n> La sección cualitativa de abajo no depende de datos.\n")
     else:
-        lines.append(f"_Correctitud sobre la muestra local: **{n_ok}/{n_cmp}** preguntas con "
-                     "contraparte manual coinciden (✓ o ≈)._\n")
+        if mode == "emr":
+            src = f" (`results/hive/{hive_src}/job.out`)" if hive_src else ""
+            lines.append(f"_Correctitud sobre datos reales **TPC-DS SF10** (clúster EMR): "
+                         f"**{n_ok}/{n_cmp}** preguntas con contraparte manual coinciden (✓ o ≈). "
+                         f"El SQL del agente corrió en el clúster real; el manual reusa la corrida "
+                         f"6.3 sobre los mismos datos{src}._\n")
+        else:
+            lines.append(f"_Correctitud sobre la muestra local: **{n_ok}/{n_cmp}** preguntas con "
+                         "contraparte manual coinciden (✓ o ≈)._\n")
         lines.append("## Tabla comparativa\n")
         lines.append("| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | "
                      "Correctitud | Nota | Calidad SQL |")
@@ -187,10 +247,22 @@ def main():
         print(f"Sin salida de la Fase 5; escrita solo la parte cualitativa -> {out}")
         return 0
 
-    # Spark local una sola vez (reusa el backend de la Skill 4).
-    from skills import s4_execute
-    import queries  # queries/spark/queries.py -> QUERIES
-    spark = s4_execute.make_local_spark(SAMPLE_DIR)
+    # target de la Fase 5: si TODAS las preguntas corrieron sobre el clúster
+    # real (target == "emr"), comparamos SF10 vs SF10 (sin reabrir el clúster,
+    # reusando el job.out de la corrida 6.3). Si no, cae al flujo original
+    # sobre la muestra local (spark efímero, sin AWS).
+    emr_mode = bool(records) and all(r.get("target") == "emr" for r in records.values())
+
+    spark = None
+    manual_rows_by_q, manual_times_by_q, hive_src = {}, {}, None
+    queries = None
+    if emr_mode:
+        manual_rows_by_q, manual_times_by_q, hive_src = load_manual_emr()
+    else:
+        # Spark local una sola vez (reusa el backend de la Skill 4).
+        from skills import s4_execute
+        import queries  # queries/spark/queries.py -> QUERIES
+        spark = s4_execute.make_local_spark(SAMPLE_DIR)
 
     rows_md, n_ok, n_cmp = [], 0, 0
     for n in sorted(records):
@@ -206,14 +278,18 @@ def main():
                            f"sin SQL del agente | — |")
             continue
 
-        # SQL del agente, re-ejecutado localmente (mismo dato que el manual).
-        try:
-            ag = run_local(agent_sql, spark)
-            agent_rows = ag["rows"]
-        except Exception as e:
-            rows_md.append(f"| {n} | {q} | {agent_engine} | {agent_t} | — | ✗ | "
-                           f"el SQL del agente falló: {type(e).__name__} | — |")
-            continue
+        if emr_mode:
+            # Ya se ejecutó en el clúster real (Fase 5); reusa esas filas.
+            agent_rows = rec.get("result", {}).get("rows", [])
+        else:
+            # SQL del agente, re-ejecutado localmente (mismo dato que el manual).
+            try:
+                ag = run_local(agent_sql, spark)
+                agent_rows = ag["rows"]
+            except Exception as e:
+                rows_md.append(f"| {n} | {q} | {agent_engine} | {agent_t} | — | ✗ | "
+                               f"el SQL del agente falló: {type(e).__name__} | — |")
+                continue
 
         quality = fmt_quality(sql_quality(agent_sql))
 
@@ -222,19 +298,27 @@ def main():
                            f"sin contraparte manual | {quality} |")
             continue
 
-        manual_sql = queries.QUERIES[manual_id][1]
-        man = run_local(manual_sql, spark)
+        if emr_mode:
+            man_rows = manual_rows_by_q.get(manual_id, [])
+            man_time = manual_times_by_q.get(manual_id, "?")
+        else:
+            manual_sql = queries.QUERIES[manual_id][1]
+            man = run_local(manual_sql, spark)
+            man_rows, man_time = man["rows"], man["time_taken"]
+
         n_cmp += 1
-        _verdict, mark, nota = compare_results(agent_rows, man["rows"])
+        _verdict, mark, nota = compare_results(agent_rows, man_rows)
         if mark in ("✓", "≈"):
             n_ok += 1
         rows_md.append(
-            f"| {n} | {q} | {agent_engine} | {agent_t} | {man['time_taken']} | "
+            f"| {n} | {q} | {agent_engine} | {agent_t} | {man_time} | "
             f"{mark} | {nota} (vs Q{manual_id}) | {quality} |")
 
-    spark.stop()
+    if spark is not None:
+        spark.stop()
 
-    report = build_report(rows_md, n_ok, n_cmp, ran=True)
+    report = build_report(rows_md, n_ok, n_cmp, ran=True,
+                          mode=("emr" if emr_mode else "local"), hive_src=hive_src)
     out = os.path.join(OUT_DIR, "comparison.md")
     with open(out, "w", encoding="utf-8") as f:
         f.write(report)

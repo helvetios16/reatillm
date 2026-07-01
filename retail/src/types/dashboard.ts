@@ -13,6 +13,7 @@ export interface AgentRecord {
   insight?: string
   columns: string[]
   rows: Cell[][]
+  total_rows?: number
   time_taken?: number | null
   llm_seconds?: number | null
   engine_seconds?: number | null

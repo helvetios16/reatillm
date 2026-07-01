@@ -90,11 +90,11 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT i.i_item_id, i.i_product_name, ROUND(SUM(ss.ss_net_paid), 2) AS ingreso\nFROM store_sales ss\nINNER JOIN item i ON ss.ss_item_sk = i.i_item_sk\nGROUP BY i.i_item_id, i.i_product_name\nORDER BY ingreso DESC\nLIMIT 5",
-      "sql_explicacion": "Esta consulta devuelve los 5 productos que han generado el mayor ingreso total, calculando la suma de ss_net_paid para cada producto.",
-      "engine": "hive",
-      "engine_razon": "La consulta implica una agregación simple con un JOIN y no utiliza funciones de ventana ni CTEs complejos, lo que la hace adecuada para Hive.",
-      "insight": "El producto con mayor ingreso es Cafe con 310.0, seguido por Leche (90.0), Te (60.0) y Pan (45.0).",
+      "sql": "SELECT i.i_item_id, i.i_product_name, ROUND(SUM(ss.ss_net_paid), 2) AS ingreso FROM store_sales ss JOIN item i ON ss.ss_item_sk = i.i_item_sk GROUP BY i.i_item_id, i.i_product_name ORDER BY ingreso DESC LIMIT 5",
+      "sql_explicacion": "Calcula el ingreso total (suma de ss_net_paid) por producto, ordena de mayor a menor y devuelve los 5 productos con mayor ingreso.",
+      "engine": "spark",
+      "engine_razon": "La consulta incluye JOIN y agregación SUM, donde Spark es óptimo por su mejor rendimiento en operaciones complejas.",
+      "insight": "Los 5 productos con mayor ingreso son encabezados por **antiableantiesecally** con $1,206,731.19, seguido de **n stanticallyoughtought** ($1,194,167.96), **n steingeseableable** ($1,175,285.73), **ationationeingn st** ($1,173,902.37) y **oughteingn stesepri** ($1,167,082.95). Las diferencias entre ellos son marginales, con menos de $40,000 entre el primero y el quinto.",
       "columns": [
         "i_item_id",
         "i_product_name",
@@ -102,27 +102,33 @@
       ],
       "rows": [
         [
-          "ITEM010",
-          "Cafe",
-          310.0
+          "AAAAAAAANAMPAAAA",
+          "antiableantiesecally",
+          1206731.19
         ],
         [
-          "ITEM012",
-          "Leche",
-          90.0
+          "AAAAAAAALINCAAAA",
+          "n stanticallyoughtought",
+          1194167.96
         ],
         [
-          "ITEM013",
-          "Te",
-          60.0
+          "AAAAAAAAJNHFAAAA",
+          "n steingeseableable",
+          1175285.73
         ],
         [
-          "ITEM011",
-          "Pan",
-          45.0
+          "AAAAAAAAFJGCAAAA",
+          "ationationeingn st",
+          1173902.37
+        ],
+        [
+          "AAAAAAAAFKIIAAAA",
+          "oughteingn stesepri",
+          1167082.95
         ]
       ],
-      "time_taken": 1.11,
+      "total_rows": 5,
+      "time_taken": 80.52,
       "ok": true
     },
     {
@@ -140,30 +146,31 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT s.s_store_name, ROUND(SUM(ss.ss_net_paid), 2) AS ventas\nFROM store_sales ss\nINNER JOIN store s ON ss.ss_store_sk = s.s_store_sk\nGROUP BY s.s_store_name\nORDER BY ventas DESC\nLIMIT 1",
-      "sql_explicacion": "Esta consulta calcula el total de ventas (ingreso) para cada tienda y devuelve la tienda con el mayor volumen de ventas.",
-      "engine": "hive",
-      "engine_razon": "La consulta implica una agregación simple con un join y no utiliza funciones de ventana ni CTE complejos, lo que la hace adecuada para Hive.",
-      "insight": "La tienda con mayores ventas es Tienda_Centro, con 310.0.",
+      "sql": "SELECT s.s_store_name, ROUND(SUM(ss.ss_net_paid), 2) AS ventas FROM store_sales ss INNER JOIN store s ON ss.ss_store_sk = s.s_store_sk GROUP BY s.s_store_name ORDER BY ventas DESC LIMIT 1",
+      "sql_explicacion": "Obtiene la tienda con mayor ingreso total (suma de ss_net_paid), ordenando de mayor a menor y tomando solo la primera fila.",
+      "engine": "spark",
+      "engine_razon": "Consulta con agregación (SUM) y JOIN: Spark es el motor por defecto para este caso.",
+      "insight": "La tienda **eing** es la que tiene mayores ventas, con un total de **6,367,890,854**.",
       "columns": [
         "s_store_name",
         "ventas"
       ],
       "rows": [
         [
-          "Tienda_Centro",
-          310.0
+          "eing",
+          6367890854
         ]
       ],
-      "time_taken": 0.16,
+      "total_rows": 1,
+      "time_taken": 67.01,
       "ok": true
     },
     {
       "n": 3,
       "question": "¿En qué mes se registraron los mayores ingresos?",
       "intent": {
-        "metric": "SUM(ss_net_paid)",
-        "dimension": "mes",
+        "metric": "suma de ss_net_paid",
+        "dimension": "mes (date_dim.d_moy)",
         "filters": [],
         "order": "desc",
         "limit": 1,
@@ -173,24 +180,23 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT d.d_year, d.d_moy, ROUND(SUM(ss.ss_net_paid),2) AS ingresos FROM store_sales ss JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_year, d.d_moy ORDER BY ingresos DESC LIMIT 1",
-      "sql_explicacion": "Suma ss_net_paid por (año, mes) y toma el mes de mayor ingreso.",
-      "engine": "hive",
-      "engine_razon": "agregación con un join, sin funciones de ventana",
-      "insight": "El mes con mayores ingresos es 1/2001 con 290.0.",
+      "sql": "SELECT d.d_moy AS mes, ROUND(SUM(ss.ss_net_paid), 2) AS ingreso FROM store_sales ss JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_moy ORDER BY ingreso DESC LIMIT 1",
+      "sql_explicacion": "Agrupa las ventas por mes (d_moy) y retorna el mes con mayor ingreso total (suma de ss_net_paid), ordenado descendente con límite 1.",
+      "engine": "spark",
+      "engine_razon": "La consulta tiene JOIN y agregación SUM con GROUP BY, lo que requiere Spark por regla al involucrar joins y agregaciones.",
+      "insight": "Los mayores ingresos se registraron en diciembre (mes 12), con un total de $7,815,845,640.2.",
       "columns": [
-        "d_year",
-        "d_moy",
-        "ingresos"
+        "mes",
+        "ingreso"
       ],
       "rows": [
         [
-          2001,
-          1,
-          290.0
+          12,
+          7815845640.2
         ]
       ],
-      "time_taken": 1.1,
+      "total_rows": 1,
+      "time_taken": 67.7,
       "ok": true
     },
     {
@@ -208,11 +214,11 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(SUM(ss.ss_net_paid), 2) AS gasto_total\nFROM store_sales ss\nINNER JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk\nGROUP BY c.c_customer_id, c.c_first_name, c.c_last_name\nORDER BY gasto_total DESC\nLIMIT 10",
-      "sql_explicacion": "Esta consulta calcula el gasto total de cada cliente y devuelve los 10 clientes que más han gastado, ordenados de mayor a menor gasto.",
-      "engine": "hive",
-      "engine_razon": "La consulta implica una agregación simple con joins y no utiliza funciones de ventana ni CTEs pesados, lo que la hace adecuada para Hive.",
-      "insight": "Los principales clientes por gasto total son Beto Diaz con 215.0, seguido de Ana Lopez con 150.0 y Cira Mora con 110.0.",
+      "sql": "SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(SUM(ss.ss_net_paid), 2) AS gasto_total FROM store_sales ss JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY gasto_total DESC LIMIT 10",
+      "sql_explicacion": "Top 10 clientes con mayor gasto total, calculado como la suma de ss_net_paid agrupada por cliente.",
+      "engine": "spark",
+      "engine_razon": "La consulta incluye agregación (SUM) y JOIN, y Spark es el motor por defecto para estos casos.",
+      "insight": "Los 10 mayores clientes por gasto total están encabezados por **Nicholas Valadez** ($404,662) y **Kelle Lindsey** ($388,899). El top 10 lo cierra **Eric Shearer** con $346,043, y el gasto entre ellos es relativamente parejo, con menos de $60,000 de diferencia entre el primero y el décimo.",
       "columns": [
         "c_customer_id",
         "c_first_name",
@@ -221,31 +227,68 @@
       ],
       "rows": [
         [
-          "CUST0002",
-          "Beto",
-          "Diaz",
-          215.0
+          "AAAAAAAAJGIJBAAA",
+          "Nicholas",
+          "Valadez",
+          404662
         ],
         [
-          "CUST0001",
-          "Ana",
-          "Lopez",
-          150.0
+          "AAAAAAAAEHAHBAAA",
+          "Kelle",
+          "Lindsey",
+          388898.92
         ],
         [
-          "CUST0003",
-          "Cira",
-          "Mora",
-          110.0
+          "AAAAAAAAJFOBFAAA",
+          "Phyllis",
+          "Thompson",
+          379054.8
         ],
         [
-          "CUST0004",
-          "Dino",
-          "Paz",
-          20.0
+          "AAAAAAAAMCGHDAAA",
+          "Jess",
+          "Reynolds",
+          377508.29
+        ],
+        [
+          "AAAAAAAABMDKCAAA",
+          "Elizabeth",
+          "Malone",
+          365873.96
+        ],
+        [
+          "AAAAAAAAOHKPDAAA",
+          "Esther",
+          "Pacheco",
+          362987.26
+        ],
+        [
+          "AAAAAAAAKKNGCAAA",
+          "Teresa",
+          null,
+          357739.73
+        ],
+        [
+          "AAAAAAAAIMKNDAAA",
+          "Rhonda",
+          "Saunders",
+          357085.71
+        ],
+        [
+          "AAAAAAAAOCONDAAA",
+          "Edwin",
+          "Rodriguez",
+          356833.9
+        ],
+        [
+          "AAAAAAAAHMNPEAAA",
+          "Eric",
+          "Shearer",
+          346042.58
         ]
       ],
-      "time_taken": 0.14,
+      "total_rows": 10,
+      "time_taken": 76.42,
       "ok": true
     },
     {
@@ -253,68 +296,552 @@
       "question": "¿Cuáles son los productos más vendidos por unidades?",
       "intent": {
         "metric": "suma de ss_quantity",
-        "dimension": "producto",
+        "dimension": "producto (item)",
         "filters": [],
         "order": "desc",
-        "limit": 5,
+        "limit": null,
         "tables": [
           "store_sales",
           "item"
         ],
         "needs_window": false
       },
-      "sql": "SELECT i.i_product_name, SUM(ss.ss_quantity) AS unidades FROM store_sales ss JOIN item i ON ss.ss_item_sk = i.i_item_sk GROUP BY i.i_product_name ORDER BY unidades DESC LIMIT 5",
-      "sql_explicacion": "Calcula suma de ss_quantity por producto.",
-      "engine": "hive",
-      "engine_razon": "agregación simple con joins, sin ventanas",
-      "insight": "El resultado principal es Cafe con 7. Le siguen Te (3), Leche (3).",
+      "sql": "SELECT i.i_item_id, i.i_product_name, SUM(ss.ss_quantity) AS unidades_vendidas FROM store_sales ss JOIN item i ON ss.ss_item_sk = i.i_item_sk GROUP BY i.i_item_id, i.i_product_name ORDER BY unidades_vendidas DESC",
+      "sql_explicacion": "Calcula el total de unidades vendidas (ss_quantity) por producto y las ordena de mayor a menor, mostrando los productos más vendidos primero.",
+      "engine": "spark",
+      "engine_razon": "La consulta tiene JOIN y agregación SUM, donde Spark es óptimo como motor predeterminado.",
+      "insight": "Los tres productos más vendidos por unidades son **\"n stbarationoughtable\"** (33,087 uds.), **\"oughtbarn steseeing\"** (33,028 uds.) y **\"oughteseoughtought\"** (32,995 uds.), dominando ligeramente sobre el resto que se mantiene entre ~31,500 y ~32,900 unidades.",
       "columns": [
+        "i_item_id",
         "i_product_name",
-        "unidades"
+        "unidades_vendidas"
       ],
       "rows": [
         [
-          "Cafe",
-          7
+          "AAAAAAAANMEFAAAA",
+          "n stbarationoughtable",
+          33087
         ],
         [
-          "Te",
-          3
+          "AAAAAAAAFKLEBAAA",
+          "oughtbarn steseeing",
+          33028
         ],
         [
-          "Leche",
-          3
+          "AAAAAAAAFHEAAAAA",
+          "oughteseoughtought",
+          32995
         ],
         [
-          "Pan",
-          2
+          "AAAAAAAADOMCAAAA",
+          "oughtn steseoughtought",
+          32902
+        ],
+        [
+          "AAAAAAAAFKIIAAAA",
+          "oughteingn stesepri",
+          32448
+        ],
+        [
+          "AAAAAAAAJPHIBAAA",
+          "antiesepribarbarought",
+          32444
+        ],
+        [
+          "AAAAAAAAPIDOAAAA",
+          "antiantiableeinganti",
+          31912
+        ],
+        [
+          "AAAAAAAAHPCNAAAA",
+          "ationbarbareseanti",
+          31837
+        ],
+        [
+          "AAAAAAAABNMLAAAA",
+          "ationpriprieingese",
+          31700
+        ],
+        [
+          "AAAAAAAAFJAIAAAA",
+          "ationoughtn stablepri",
+          31687
+        ],
+        [
+          "AAAAAAAALLNLAAAA",
+          "oughtationantieingese",
+          31598
+        ],
+        [
+          "AAAAAAAALPLFBAAA",
+          "prieingbarn steing",
+          31553
+        ],
+        [
+          "AAAAAAAABKDFAAAA",
+          "n stbareseoughtable",
+          31535
+        ],
+        [
+          "AAAAAAAADKNEBAAA",
+          "oughtoughteseantieing",
+          31516
+        ],
+        [
+          "AAAAAAAADNDDAAAA",
+          "ationcallyablepriought",
+          31511
+        ],
+        [
+          "AAAAAAAABOOOAAAA",
+          "priantioughtoughtcally",
+          31490
+        ],
+        [
+          "AAAAAAAADANFBAAA",
+          "ationeseprin steing",
+          31489
+        ],
+        [
+          "AAAAAAAAFCJMAAAA",
+          "prin steseoughtanti",
+          31476
+        ],
+        [
+          "AAAAAAAAFDEBAAAA",
+          "priationoughtanti",
+          31452
+        ],
+        [
+          "AAAAAAAALNGHAAAA",
+          "ationableesebarpri",
+          31450
+        ],
+        [
+          "AAAAAAAAJELEAAAA",
+          "priationablen stought",
+          31437
+        ],
+        [
+          "AAAAAAAAPGMGBAAA",
+          "antin stableprin st",
+          31423
+        ],
+        [
+          "AAAAAAAAFDOMAAAA",
+          "n steingationableanti",
+          31423
+        ],
+        [
+          "AAAAAAAAJGNIBAAA",
+          "ationpriationoughtbarought",
+          31411
+        ],
+        [
+          "AAAAAAAADANMAAAA",
+          "prieingeseableanti",
+          31396
+        ],
+        [
+          "AAAAAAAAHODGBAAA",
+          "oughtoughtoughtoughtn st",
+          31387
+        ],
+        [
+          "AAAAAAAANAIABAAA",
+          "ationn stantiationcally",
+          31364
+        ],
+        [
+          "AAAAAAAAJOPOAAAA",
+          "ationoughteseoughtcally",
+          31363
+        ],
+        [
+          "AAAAAAAAJPKDAAAA",
+          "ationn stbarantiought",
+          31338
+        ],
+        [
+          "AAAAAAAAHOMHAAAA",
+          "antiationn stoughtpri",
+          31311
+        ],
+        [
+          "AAAAAAAAPFEGBAAA",
+          "oughtpriableoughtn st",
+          31303
+        ],
+        [
+          "AAAAAAAAPMAGBAAA",
+          "n stoughtpribarn st",
+          31303
+        ],
+        [
+          "AAAAAAAAHFJKAAAA",
+          "oughtantipripriese",
+          31279
+        ],
+        [
+          "AAAAAAAAHKFMAAAA",
+          "n stn stantibaranti",
+          31263
+        ],
+        [
+          "AAAAAAAABPPCBAAA",
+          "n stbareingationation",
+          31236
+        ],
+        [
+          "AAAAAAAAPJLEBAAA",
+          "antin steingeseeing",
+          31223
+        ],
+        [
+          "AAAAAAAAJLDFAAAA",
+          "priprieseoughtable",
+          31217
+        ],
+        [
+          "AAAAAAAANJHLAAAA",
+          "antibarbarationese",
+          31197
+        ],
+        [
+          "AAAAAAAABJONAAAA",
+          "ationationn stcallyanti",
+          31170
+        ],
+        [
+          "AAAAAAAAHDAPAAAA",
+          "antin steseoughtcally",
+          31167
+        ],
+        [
+          "AAAAAAAALINCAAAA",
+          "n stanticallyoughtought",
+          31166
+        ],
+        [
+          "AAAAAAAAJAIHBAAA",
+          "anticallyablecallyn st",
+          31158
+        ],
+        [
+          "AAAAAAAAFIJDAAAA",
+          "antiableationeseought",
+          31148
+        ],
+        [
+          "AAAAAAAADLJCAAAA",
+          "antiationcallybarought",
+          31148
+        ],
+        [
+          "AAAAAAAAHIHPAAAA",
+          "ationcallypriprically",
+          31146
+        ],
+        [
+          "AAAAAAAAHPGCBAAA",
+          "oughtoughtantiantiation",
+          31132
+        ],
+        [
+          "AAAAAAAAJFKBAAAA",
+          "antieseationcally",
+          31131
+        ],
+        [
+          "AAAAAAAAHJHFAAAA",
+          "priableeseableable",
+          31131
+        ],
+        [
+          "AAAAAAAANLMBAAAA",
+          "ationantipriation",
+          31124
+        ],
+        [
+          "AAAAAAAAJBKCAAAA",
+          "ationationationbarought",
+          31122
+        ],
+        [
+          "AAAAAAAADBBHBAAA",
+          "prieingeseesen st",
+          31122
+        ],
+        [
+          "AAAAAAAAHOIOAAAA",
+          "priablecallyn stanti",
+          31119
+        ],
+        [
+          "AAAAAAAADDHIBAAA",
+          "ationeseoughtbarbarought",
+          31118
+        ],
+        [
+          "AAAAAAAAJODBBAAA",
+          "pripricallybaration",
+          31101
+        ],
+        [
+          "AAAAAAAADBNBBAAA",
+          "n stationn stableation",
+          31084
+        ],
+        [
+          "AAAAAAAANBKDBAAA",
+          "prioughtesebareing",
+          31077
+        ],
+        [
+          "AAAAAAAABFCHBAAA",
+          "oughtbareingesen st",
+          31059
+        ],
+        [
+          "AAAAAAAAPAADBAAA",
+          "n stprieingationation",
+          31058
+        ],
+        [
+          "AAAAAAAAFPGCAAAA",
+          "priationn stn st",
+          31033
+        ],
+        [
+          "AAAAAAAAJKCDBAAA",
+          "antibarantieingation",
+          31020
+        ],
+        [
+          "AAAAAAAAPHLKAAAA",
+          "pribarn stpriese",
+          31020
+        ],
+        [
+          "AAAAAAAABMEFAAAA",
+          "ationn stcallyoughtable",
+          31020
+        ],
+        [
+          "AAAAAAAAJCOGAAAA",
+          "oughtbarableeingable",
+          31011
+        ],
+        [
+          "AAAAAAAALMBGBAAA",
+          "oughtationantibarn st",
+          31007
+        ],
+        [
+          "AAAAAAAAJDEFBAAA",
+          "ationn stbarationeing",
+          30995
+        ],
+        [
+          "AAAAAAAAPIAOAAAA",
+          "ationeingeseationanti",
+          30994
+        ],
+        [
+          "AAAAAAAALCGIBAAA",
+          "prieingeingn stn st",
+          30989
+        ],
+        [
+          "AAAAAAAABPOHAAAA",
+          "ationn steseablepri",
+          30970
+        ],
+        [
+          "AAAAAAAANCJABAAA",
+          "antieingeingationcally",
+          30963
+        ],
+        [
+          "AAAAAAAALPLDAAAA",
+          "antiantipriantiought",
+          30940
+        ],
+        [
+          "AAAAAAAAFEDEAAAA",
+          "oughtableableationought",
+          30940
+        ],
+        [
+          "AAAAAAAAHDMCBAAA",
+          "antiantieingcallyation",
+          30939
+        ],
+        [
+          "AAAAAAAAPNJCBAAA",
+          "antiantiablecallyation",
+          30935
+        ],
+        [
+          "AAAAAAAAJHFHAAAA",
+          "priationbarbarpri",
+          30931
+        ],
+        [
+          "AAAAAAAAHLBAAAAA",
+          "n stpriese",
+          30922
+        ],
+        [
+          "AAAAAAAAHOEJAAAA",
+          "n stoughtoughteingpri",
+          30902
+        ],
+        [
+          "AAAAAAAAPBCHAAAA",
+          "antioughtablen stable",
+          30901
+        ],
+        [
+          "AAAAAAAAFMGHBAAA",
+          "oughtesen stantin st",
+          30890
+        ],
+        [
+          "AAAAAAAAFEAEAAAA",
+          "priantiesecallyought",
+          30889
+        ],
+        [
+          "AAAAAAAALBCFAAAA",
+          "n stoughtbaroughtable",
+          30881
+        ],
+        [
+          "AAAAAAAAJFFAAAAA",
+          "n stcallypriought",
+          30872
+        ],
+        [
+          "AAAAAAAAFAODAAAA",
+          "ationationeingantiought",
+          30863
+        ],
+        [
+          "AAAAAAAAHPFDBAAA",
+          "oughtantiprin station",
+          30853
+        ],
+        [
+          "AAAAAAAAPMHJAAAA",
+          "pricallyeingeingpri",
+          30845
+        ],
+        [
+          "AAAAAAAAFBAABAAA",
+          "ationantiantiantically",
+          30837
+        ],
+        [
+          "AAAAAAAAHPEOAAAA",
+          "antioughtcallyeinganti",
+          30835
+        ],
+        [
+          "AAAAAAAAFJFDAAAA",
+          "ationoughtationpriought",
+          30821
+        ],
+        [
+          "AAAAAAAAFPHDBAAA",
+          "oughtcallyeingn station",
+          30814
+        ],
+        [
+          "AAAAAAAAHMJPAAAA",
+          "priesen stprically",
+          30811
+        ],
+        [
+          "AAAAAAAANLOCAAAA",
+          "anticallyn stoughtought",
+          30809
+        ],
+        [
+          "AAAAAAAAFAKHAAAA",
+          "ationpriableoughtpri",
+          30806
+        ],
+        [
+          "AAAAAAAADJLBBAAA",
+          "antin stantiableation",
+          30805
+        ],
+        [
+          "AAAAAAAAFKKPAAAA",
+          "anticallyoughtesecally",
+          30799
+        ],
+        [
+          "AAAAAAAALOAMAAAA",
+          "ationeingprin stese",
+          30793
+        ],
+        [
+          "AAAAAAAALOIHAAAA",
+          "antiantin stbarpri",
+          30785
+        ],
+        [
+          "AAAAAAAAHPNEBAAA",
+          "antin steseantieing",
+          30785
+        ],
+        [
+          "AAAAAAAAHHENAAAA",
+          "oughtn stprieseanti",
+          30781
+        ],
+        [
+          "AAAAAAAADPDABAAA",
+          "ationeseanticallycally",
+          30777
+        ],
+        [
+          "AAAAAAAADHCABAAA",
+          "pricallyoughtcallycally",
+          30767
+        ],
+        [
+          "AAAAAAAAHMPFBAAA",
+          "antiantibarbarn st",
+          30765
         ]
       ],
-      "time_taken": 0.11,
+      "total_rows": 101999,
+      "time_taken": 75.6,
       "ok": true
     },
     {
       "n": 6,
       "question": "¿Cuál es el ticket promedio por cliente?",
       "intent": {
-        "metric": "AVG del total por ticket",
+        "metric": "promedio del total de ss_net_paid por ticket",
         "dimension": "cliente",
-        "filters": [
-          "ss_customer_sk IS NOT NULL"
-        ],
-        "order": "desc",
-        "limit": 20,
+        "filters": [],
+        "order": null,
+        "limit": null,
         "tables": [
           "store_sales",
           "customer"
         ],
-        "needs_window": false
+        "needs_window": true
       },
-      "sql": "WITH tickets AS (SELECT ss.ss_customer_sk, ss.ss_ticket_number, SUM(ss.ss_net_paid) AS total_ticket FROM store_sales ss WHERE ss.ss_customer_sk IS NOT NULL GROUP BY ss.ss_customer_sk, ss.ss_ticket_number) SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(AVG(t.total_ticket),2) AS ticket_promedio FROM tickets t JOIN customer c ON t.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY ticket_promedio DESC LIMIT 20",
-      "sql_explicacion": "Calcula AVG del total por ticket por cliente.",
+      "sql": "WITH ticket_totals AS (SELECT ss.ss_customer_sk, ss.ss_ticket_number, SUM(ss.ss_net_paid) AS ticket_total FROM store_sales ss GROUP BY ss.ss_customer_sk, ss.ss_ticket_number) SELECT c.c_customer_id, c.c_first_name, c.c_last_name, ROUND(AVG(tt.ticket_total), 2) AS ticket_promedio FROM ticket_totals tt INNER JOIN customer c ON tt.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY ticket_promedio DESC",
+      "sql_explicacion": "Agrega ss_net_paid por ticket (ss_ticket_number) y cliente en un CTE, luego promedia esos totales por cliente para obtener el ticket promedio de cada uno, ordenando de mayor a menor.",
       "engine": "spark",
-      "engine_razon": "usa CTE / consulta compuesta",
-      "insight": "El resultado principal es CUST0002 con 107.5. Le siguen CUST0001 (75.0), CUST0003 (55.0).",
+      "engine_razon": "La consulta usa CTE, agregación, JOIN y ORDER BY; Spark es superior en estos casos y es el motor por defecto.",
+      "insight": "Los clientes con mayor ticket promedio son Linda Tucker (65,687.01), Charles Daniels (59,302.83) y Cynthia Walton (58,935.06), todos por encima de los 58,000. En contraste, el promedio más bajo entre los mostrados es de Chester Antonio con 53,432.83, lo que refleja una base de clientes de alto valor bastante homogénea.",
       "columns": [
         "c_customer_id",
         "c_first_name",
@@ -323,31 +850,608 @@
       ],
       "rows": [
         [
-          "CUST0002",
-          "Beto",
-          "Diaz",
-          107.5
+          "AAAAAAAAJBFFAAAA",
+          "Linda",
+          "Tucker",
+          65687.01
         ],
         [
-          "CUST0001",
-          "Ana",
+          "AAAAAAAABCMJAAAA",
+          "Charles",
+          "Daniels",
+          59302.83
+        ],
+        [
+          "AAAAAAAAENIPFAAA",
+          "Cynthia",
+          "Walton",
+          58935.06
+        ],
+        [
+          "AAAAAAAANHOCGAAA",
+          "Jovita",
+          "Healey",
+          58737.23
+        ],
+        [
+          "AAAAAAAAOFLLBAAA",
+          "Jerrold",
+          "Roth",
+          57434.11
+        ],
+        [
+          "AAAAAAAAPOFICAAA",
+          null,
+          null,
+          56558.75
+        ],
+        [
+          "AAAAAAAALOIFBAAA",
+          "Theresa",
+          "Francis",
+          55337.84
+        ],
+        [
+          "AAAAAAAAPECDHAAA",
+          "Steven",
+          "Moore",
+          55208.63
+        ],
+        [
+          "AAAAAAAAOMLHHAAA",
+          "Naomi",
+          "Mead",
+          54792.12
+        ],
+        [
+          "AAAAAAAADANGEAAA",
+          "Stephanie",
+          "Frazier",
+          54482.76
+        ],
+        [
+          "AAAAAAAACKFEFAAA",
+          "Sharonda",
+          "Mitchell",
+          54411.39
+        ],
+        [
+          "AAAAAAAALLMADAAA",
+          "Cassie",
+          "Campbell",
+          54343.08
+        ],
+        [
+          "AAAAAAAADECJDAAA",
+          "Elsa",
+          "Mcclure",
+          54156.5
+        ],
+        [
+          "AAAAAAAADLDCFAAA",
+          "Rosina",
+          "Smith",
+          53537.14
+        ],
+        [
+          "AAAAAAAABAOHHAAA",
+          "Chester",
+          "Antonio",
+          53432.83
+        ],
+        [
+          "AAAAAAAACBMNFAAA",
+          "John",
+          "Johnson",
+          53364.68
+        ],
+        [
+          "AAAAAAAAJHPAAAAA",
+          "Emma",
+          null,
+          53307.34
+        ],
+        [
+          "AAAAAAAALHCMBAAA",
+          "Sarah",
+          "Robles",
+          53159.16
+        ],
+        [
+          "AAAAAAAABPLIBAAA",
+          "Tiffany",
+          "Atkinson",
+          52884.79
+        ],
+        [
+          "AAAAAAAAMIENCAAA",
+          "Melvin",
+          "Burley",
+          52448.05
+        ],
+        [
+          "AAAAAAAAHCMJAAAA",
+          "Wendy",
+          "Bartley",
+          52244.14
+        ],
+        [
+          "AAAAAAAAODDKEAAA",
+          "Mike",
+          "Webb",
+          52191.19
+        ],
+        [
+          "AAAAAAAACJNMAAAA",
+          "Bonnie",
           "Lopez",
-          75.0
+          52111.99
         ],
         [
-          "CUST0003",
-          "Cira",
-          "Mora",
-          55.0
+          "AAAAAAAAGPLCBAAA",
+          "Rosa",
+          "Vaughn",
+          51769.07
         ],
         [
-          "CUST0004",
-          "Dino",
-          "Paz",
-          20.0
+          "AAAAAAAAJDINAAAA",
+          "Dorothy",
+          "Kerr",
+          51725.53
+        ],
+        [
+          "AAAAAAAACALHHAAA",
+          "James",
+          "Fleming",
+          51592.71
+        ],
+        [
+          "AAAAAAAAIJKEFAAA",
+          "Napoleon",
+          "Johnson",
+          51527.66
+        ],
+        [
+          "AAAAAAAAODADGAAA",
+          "Emilio",
+          "Sykes",
+          51453.16
+        ],
+        [
+          "AAAAAAAAJKNNBAAA",
+          "Earline",
+          "Ramos",
+          51339.32
+        ],
+        [
+          "AAAAAAAACEMGDAAA",
+          "Virginia",
+          "Williams",
+          51294.78
+        ],
+        [
+          "AAAAAAAAHEILDAAA",
+          "Charles",
+          "Davis",
+          51259.03
+        ],
+        [
+          "AAAAAAAAICNJBAAA",
+          "Adam",
+          "Hamilton",
+          51159.12
+        ],
+        [
+          "AAAAAAAAAGMMCAAA",
+          "David",
+          "Mercer",
+          50956.27
+        ],
+        [
+          "AAAAAAAAGPDFEAAA",
+          "James",
+          "East",
+          50885.38
+        ],
+        [
+          "AAAAAAAALDBLEAAA",
+          "Joyce",
+          "Wise",
+          50790.41
+        ],
+        [
+          "AAAAAAAAHAFMFAAA",
+          "Elizabeth",
+          "Steele",
+          50775.8
+        ],
+        [
+          "AAAAAAAAMENJGAAA",
+          "Suzanne",
+          "Wood",
+          50714.01
+        ],
+        [
+          "AAAAAAAADBKPBAAA",
+          "Barbara",
+          "Green",
+          50704.4
+        ],
+        [
+          "AAAAAAAAIOJKGAAA",
+          "Theodore",
+          "Foster",
+          50573.68
+        ],
+        [
+          "AAAAAAAAMCBCGAAA",
+          "Rosa",
+          "Gray",
+          50412.17
+        ],
+        [
+          "AAAAAAAANBNFDAAA",
+          "Denis",
+          "Knudson",
+          50164.59
+        ],
+        [
+          "AAAAAAAAMDNKBAAA",
+          "Jacob",
+          "Burris",
+          50068
+        ],
+        [
+          "AAAAAAAAONFHCAAA",
+          "Sherri",
+          "Barnhart",
+          50049.24
+        ],
+        [
+          "AAAAAAAANEPPDAAA",
+          "Betty",
+          "Golden",
+          49990.6
+        ],
+        [
+          "AAAAAAAAJLGKAAAA",
+          "Stephanie",
+          "Hodge",
+          49474.91
+        ],
+        [
+          "AAAAAAAAJOGJGAAA",
+          "Lucille",
+          "Whitt",
+          49405.51
+        ],
+        [
+          "AAAAAAAANNKDGAAA",
+          "William",
+          "Reed",
+          49250.06
+        ],
+        [
+          "AAAAAAAAFOPGEAAA",
+          "Alan",
+          "Mcnabb",
+          49139.09
+        ],
+        [
+          "AAAAAAAABDHOCAAA",
+          "Darryl",
+          "Pelletier",
+          49063.11
+        ],
+        [
+          "AAAAAAAAPCBCBAAA",
+          "George",
+          "Cruse",
+          48926.85
+        ],
+        [
+          "AAAAAAAAFJBPAAAA",
+          "Ronald",
+          "Woodcock",
+          48854.68
+        ],
+        [
+          "AAAAAAAAHPKDBAAA",
+          "Sarah",
+          "Garza",
+          48778.09
+        ],
+        [
+          "AAAAAAAAONIMDAAA",
+          "Sharon",
+          "Page",
+          48763.21
+        ],
+        [
+          "AAAAAAAAJMMNGAAA",
+          "Alice",
+          "Turner",
+          48713.59
+        ],
+        [
+          "AAAAAAAACKIACAAA",
+          "Adam",
+          "Norton",
+          48653.13
+        ],
+        [
+          "AAAAAAAAGFPOEAAA",
+          "August",
+          "Warren",
+          48588.88
+        ],
+        [
+          "AAAAAAAABILHFAAA",
+          "Henry",
+          "Chestnut",
+          48455.37
+        ],
+        [
+          "AAAAAAAAINHKCAAA",
+          "Kevin",
+          "Allen",
+          48432.4
+        ],
+        [
+          "AAAAAAAAGHGPCAAA",
+          "Leona",
+          "Dabney",
+          48293.07
+        ],
+        [
+          "AAAAAAAAAEBOEAAA",
+          "Betty",
+          "Puckett",
+          48188.59
+        ],
+        [
+          "AAAAAAAADLLIEAAA",
+          "Boyd",
+          "Hankins",
+          48185.98
+        ],
+        [
+          "AAAAAAAADNDOCAAA",
+          "Todd",
+          "Rutledge",
+          48173.96
+        ],
+        [
+          "AAAAAAAALIBAHAAA",
+          "Genevieve",
+          null,
+          48131.76
+        ],
+        [
+          "AAAAAAAANHDHAAAA",
+          "Agustin",
+          "Johnson",
+          48025.37
+        ],
+        [
+          "AAAAAAAAFIHDBAAA",
+          "William",
+          "Swanson",
+          47807.36
+        ],
+        [
+          "AAAAAAAALHJGAAAA",
+          "Amy",
+          "Graves",
+          47659.6
+        ],
+        [
+          "AAAAAAAAMGCBCAAA",
+          "Joann",
+          "Darby",
+          47634.34
+        ],
+        [
+          "AAAAAAAAPEEAAAAA",
+          "Eva",
+          "Sanford",
+          47632.98
+        ],
+        [
+          "AAAAAAAAEKKMEAAA",
+          "Annette",
+          "David",
+          47588.76
+        ],
+        [
+          "AAAAAAAAIKHEAAAA",
+          "Margaret",
+          "Orth",
+          47498.28
+        ],
+        [
+          "AAAAAAAALENBAAAA",
+          "Lloyd",
+          "Pettis",
+          47434.93
+        ],
+        [
+          "AAAAAAAAPOMLDAAA",
+          "John",
+          "Matheny",
+          47394.45
+        ],
+        [
+          "AAAAAAAAIGDADAAA",
+          "Erica",
+          "Louis",
+          47333.52
+        ],
+        [
+          "AAAAAAAAAHDGDAAA",
+          "Linette",
+          "Wade",
+          47319.14
+        ],
+        [
+          "AAAAAAAAHKLBBAAA",
+          "Raymond",
+          "Arnold",
+          47309.47
+        ],
+        [
+          "AAAAAAAAEMCGCAAA",
+          "Pamela",
+          "Todd",
+          47266.42
+        ],
+        [
+          "AAAAAAAACOKACAAA",
+          "Dorothy",
+          "West",
+          47259.79
+        ],
+        [
+          "AAAAAAAAKJOJEAAA",
+          "Adam",
+          "Song",
+          47248.08
+        ],
+        [
+          "AAAAAAAAKBEBAAAA",
+          "Michael",
+          "Williams",
+          47240.83
+        ],
+        [
+          "AAAAAAAADLGDCAAA",
+          "Theo",
+          null,
+          47181.29
+        ],
+        [
+          "AAAAAAAABJFMDAAA",
+          "Blaine",
+          "Garcia",
+          47121.47
+        ],
+        [
+          "AAAAAAAADLKMEAAA",
+          "Sherley",
+          "Carter",
+          47108.32
+        ],
+        [
+          "AAAAAAAAOEHKBAAA",
+          "Daniel",
+          "Jacobs",
+          46988.51
+        ],
+        [
+          "AAAAAAAAAHDEDAAA",
+          "Dawn",
+          "Watkins",
+          46981.05
+        ],
+        [
+          "AAAAAAAAFOLDAAAA",
+          "Angel",
+          "Jones",
+          46847.01
+        ],
+        [
+          "AAAAAAAAPNELBAAA",
+          "Pamela",
+          "Davis",
+          46830.22
+        ],
+        [
+          "AAAAAAAAOGEPCAAA",
+          "Mabel",
+          "Franks",
+          46811.75
+        ],
+        [
+          "AAAAAAAADDGFBAAA",
+          "Helen",
+          "Posey",
+          46806.57
+        ],
+        [
+          "AAAAAAAAGLLKGAAA",
+          "Katy",
+          "Waddell",
+          46738.02
+        ],
+        [
+          "AAAAAAAAIAOKAAAA",
+          "Scott",
+          "James",
+          46717.05
+        ],
+        [
+          "AAAAAAAAHKIDDAAA",
+          "Florence",
+          "Hardin",
+          46636.31
+        ],
+        [
+          "AAAAAAAACEFNBAAA",
+          "Archie",
+          "Adkins",
+          46615.96
+        ],
+        [
+          "AAAAAAAAFNABCAAA",
+          "Joyce",
+          "Reece",
+          46581.73
+        ],
+        [
+          "AAAAAAAABKPBAAAA",
+          "Elizabeth",
+          null,
+          46498.97
+        ],
+        [
+          "AAAAAAAADNPCFAAA",
+          "Brian",
+          "Caron",
+          46452.92
+        ],
+        [
+          "AAAAAAAAONBNCAAA",
+          null,
+          "Strickland",
+          46428.13
+        ],
+        [
+          "AAAAAAAAGKEMDAAA",
+          "Craig",
+          "Garrett",
+          46418.88
+        ],
+        [
+          "AAAAAAAAELDHAAAA",
+          "Sharon",
+          "Griffin",
+          46373.62
+        ],
+        [
+          "AAAAAAAAEOHHHAAA",
+          "Michelle",
+          "Wilburn",
+          46372.49
+        ],
+        [
+          "AAAAAAAABHCLCAAA",
+          "Jason",
+          "Franks",
+          46340.9
         ]
       ],
-      "time_taken": 0.15,
+      "total_rows": 495848,
+      "time_taken": 83.73,
       "ok": true
     },
     {
@@ -355,9 +1459,9 @@
       "question": "¿Cuáles son las ventas por día de la semana?",
       "intent": {
         "metric": "suma de ss_net_paid",
-        "dimension": "dia de la semana",
+        "dimension": "día de la semana",
         "filters": [],
-        "order": "desc",
+        "order": null,
         "limit": null,
         "tables": [
           "store_sales",
@@ -365,41 +1469,56 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT d.d_day_name, ROUND(SUM(ss.ss_net_paid),2) AS ventas FROM store_sales ss JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_day_name ORDER BY ventas DESC",
-      "sql_explicacion": "Calcula suma de ss_net_paid por dia de la semana.",
-      "engine": "hive",
-      "engine_razon": "agregación simple con joins, sin ventanas",
-      "insight": "El resultado principal es Monday con 290.0. Le siguen Wednesday (125.0), Tuesday (90.0).",
+      "sql": "SELECT d.d_day_name, ROUND(SUM(ss.ss_net_paid), 2) AS ventas FROM store_sales ss INNER JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_day_name",
+      "sql_explicacion": "Calcula el ingreso total (suma de ss_net_paid) por cada día de la semana usando el calendario.",
+      "engine": "spark",
+      "engine_razon": "La consulta tiene JOIN y agregacion SUM sobre store_sales, ideal para Spark como motor por defecto",
+      "insight": "Miércoles lidera las ventas semanales con $6,651M, mientras que martes registra el menor volumen con $6,558M. La diferencia entre el día pico y el valle es de aproximadamente $93M.",
       "columns": [
         "d_day_name",
         "ventas"
       ],
       "rows": [
         [
-          "Monday",
-          290.0
+          "Wednesday",
+          6651246344.85
         ],
         [
-          "Wednesday",
-          125.0
+          "Saturday",
+          6631881810.27
         ],
         [
           "Tuesday",
-          90.0
+          6557845376.28
+        ],
+        [
+          "Monday",
+          6580705175.99
+        ],
+        [
+          "Sunday",
+          6633167574.13
+        ],
+        [
+          "Friday",
+          6597762648.93
+        ],
+        [
+          "Thursday",
+          6599363160.79
         ]
       ],
-      "time_taken": 0.13,
+      "total_rows": 7,
+      "time_taken": 67.22,
       "ok": true
     },
     {
       "n": 8,
       "question": "¿Cuáles son los 20 clientes con mayor número de compras?",
       "intent": {
-        "metric": "COUNT(DISTINCT ss_ticket_number)",
+        "metric": "conteo de tickets (COUNT(DISTINCT ss_ticket_number))",
         "dimension": "cliente",
-        "filters": [
-          "ss_customer_sk IS NOT NULL"
-        ],
+        "filters": [],
         "order": "desc",
         "limit": 20,
         "tables": [
@@ -408,55 +1527,131 @@
         ],
         "needs_window": false
       },
-      "sql": "SELECT c.c_customer_id, c.c_first_name, c.c_last_name, COUNT(DISTINCT ss.ss_ticket_number) AS num_compras FROM store_sales ss JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY num_compras DESC LIMIT 20",
-      "sql_explicacion": "Cuenta tickets distintos por cliente y ordena de mayor a menor.",
-      "engine": "hive",
-      "engine_razon": "agregación con join y conteo distinto, sin funciones de ventana",
-      "insight": "El resultado principal es CUST0001 con 2.",
+      "sql": "SELECT c.c_customer_id, CONCAT_WS(' ', c.c_first_name, c.c_last_name) AS customer_name, COUNT(DISTINCT ss.ss_ticket_number) AS num_compras FROM store_sales ss INNER JOIN customer c ON ss.ss_customer_sk = c.c_customer_sk GROUP BY c.c_customer_id, c.c_first_name, c.c_last_name ORDER BY num_compras DESC LIMIT 20",
+      "sql_explicacion": "Calcula los 20 clientes con mayor cantidad de tickets (compras) distintos, mostrando su ID, nombre y el conteo descendente.",
+      "engine": "spark",
+      "engine_razon": "La consulta incluye agregación (COUNT(DISTINCT)) y JOIN, por lo que Spark es el motor óptimo por defecto frente a Hive.",
+      "insight": "Los 20 clientes con más compras están encabezados por **Nicholas Valadez** (19 compras), seguido de **Elizabeth Malone** y **Esther Pacheco** (18 cada uno). Se observa un grupo nutrido en 16 compras y el listado solo devuelve 15 registros, no los 20 solicitados.",
       "columns": [
         "c_customer_id",
-        "c_first_name",
-        "c_last_name",
+        "customer_name",
         "num_compras"
       ],
       "rows": [
         [
-          "CUST0001",
-          "Ana",
-          "Lopez",
-          2
+          "AAAAAAAAJGIJBAAA",
+          "Nicholas Valadez",
+          19
         ],
         [
-          "CUST0003",
-          "Cira",
-          "Mora",
-          2
+          "AAAAAAAABMDKCAAA",
+          "Elizabeth Malone",
+          18
         ],
         [
-          "CUST0002",
-          "Beto",
-          "Diaz",
-          2
+          "AAAAAAAAOHKPDAAA",
+          "Esther Pacheco",
+          18
         ],
         [
-          "CUST0004",
-          "Dino",
-          "Paz",
-          1
+          "AAAAAAAAIHCGFAAA",
+          "Danny Mills",
+          17
+        ],
+        [
+          "AAAAAAAAHFADEAAA",
+          "Ryan Waller",
+          17
+        ],
+        [
+          "AAAAAAAAGMHGAAAA",
+          "Francoise Roberson",
+          17
+        ],
+        [
+          "AAAAAAAAOBPODAAA",
+          "Autumn Manning",
+          17
+        ],
+        [
+          "AAAAAAAAGGCBEAAA",
+          "Herbert Varela",
+          17
+        ],
+        [
+          "AAAAAAAAMCGAEAAA",
+          "Walter Nicholson",
+          16
+        ],
+        [
+          "AAAAAAAAJFOBFAAA",
+          "Phyllis Thompson",
+          16
+        ],
+        [
+          "AAAAAAAAKKNGCAAA",
+          "Teresa",
+          16
+        ],
+        [
+          "AAAAAAAAOCNEFAAA",
+          "Amber Elliot",
+          16
+        ],
+        [
+          "AAAAAAAAPGPOBAAA",
+          "Brooke Stevens",
+          16
+        ],
+        [
+          "AAAAAAAAHIKIEAAA",
+          "Terrell Guerrero",
+          16
+        ],
+        [
+          "AAAAAAAAADLIDAAA",
+          "Marie Bey",
+          16
+        ],
+        [
+          "AAAAAAAAFENICAAA",
+          "Donald Fowler",
+          16
+        ],
+        [
+          "AAAAAAAAAMMNDAAA",
+          "Willie Ward",
+          16
+        ],
+        [
+          "AAAAAAAAJNENEAAA",
+          "Diana Brown",
+          16
+        ],
+        [
+          "AAAAAAAAPAOAHAAA",
+          "Jill Brown",
+          16
+        ],
+        [
+          "AAAAAAAALBCPBAAA",
+          "Wade Bivins",
+          16
         ]
       ],
-      "time_taken": 1.06,
+      "total_rows": 20,
+      "time_taken": 78.46,
       "ok": true
     },
     {
       "n": 9,
       "question": "¿Cuáles son los productos más vendidos en cada tienda?",
       "intent": {
-        "metric": "SUM(ss_net_paid)",
-        "dimension": "producto por tienda",
+        "metric": "suma de ss_quantity",
+        "dimension": "tienda, producto",
         "filters": [],
         "order": "desc",
-        "limit": 5,
+        "limit": null,
         "tables": [
           "store_sales",
           "item",
@@ -464,76 +1659,89 @@
         ],
         "needs_window": true
       },
-      "sql": "WITH ventas_prod AS ( SELECT s.s_store_name, i.i_product_name,  ROUND(SUM(ss.ss_net_paid), 2) AS ventas  FROM store_sales ss  JOIN item i ON ss.ss_item_sk = i.i_item_sk  JOIN store s ON ss.ss_store_sk = s.s_store_sk  GROUP BY s.s_store_name, i.i_product_name), ranked AS ( SELECT s_store_name, i_product_name, ventas,  RANK() OVER (PARTITION BY s_store_name ORDER BY ventas DESC) AS rk  FROM ventas_prod) SELECT s_store_name, i_product_name, ventas, rk FROM ranked WHERE rk <= 5 ORDER BY s_store_name, rk",
-      "sql_explicacion": "Ranking de productos por ventas dentro de cada tienda (top 5).",
+      "sql": "WITH ranked AS (SELECT s.s_store_name, i.i_item_id, i.i_product_name, SUM(ss.ss_quantity) AS unidades_vendidas, RANK() OVER (PARTITION BY s.s_store_name ORDER BY SUM(ss.ss_quantity) DESC) AS rnk FROM store_sales ss JOIN store s ON ss.ss_store_sk = s.s_store_sk JOIN item i ON ss.ss_item_sk = i.i_item_sk GROUP BY s.s_store_name, i.i_item_id, i.i_product_name) SELECT s_store_name, i_item_id, i_product_name, unidades_vendidas FROM ranked WHERE rnk = 1 ORDER BY s_store_name",
+      "sql_explicacion": "Para cada tienda, calcula el producto (o productos, si hay empate) con mayor cantidad de unidades vendidas, ordenando las tiendas alfabéticamente.",
       "engine": "spark",
-      "engine_razon": "usa función de ventana RANK() con CTE, mejor en Spark",
-      "insight": "El resultado principal es Tienda_Centro con 1.",
+      "engine_razon": "La consulta usa RANK/OVER (ventanas) y agregaciones con JOIN; Spark es óptimo para estos patrones.",
+      "insight": "El producto más vendido por tienda es liderado por **ese** con *ationeingpriationcally* (5.791 unidades), seguido de **bar** con *prieingbarn steing* (5.777) y **eing** con *oughtantiesebarn st* (5.743). La tienda con menor volumen es **n st** (2.964 uds. de *n stantiantiationanti*).",
       "columns": [
         "s_store_name",
+        "i_item_id",
         "i_product_name",
-        "ventas",
-        "rk"
+        "unidades_vendidas"
       ],
       "rows": [
         [
-          "Tienda_Centro",
-          "Cafe",
-          260.0,
-          1
+          "able",
+          "AAAAAAAALFOABAAA",
+          "oughtoughtablen stcally",
+          5621
         ],
         [
-          "Tienda_Centro",
-          "Leche",
-          30.0,
-          2
+          "anti",
+          "AAAAAAAAPKONAAAA",
+          "ationbarbarationanti",
+          3173
         ],
         [
-          "Tienda_Centro",
-          "Pan",
-          20.0,
-          3
+          "ation",
+          "AAAAAAAAPAEIBAAA",
+          "prieseprin stn st",
+          3787
         ],
         [
-          "Tienda_Norte",
-          "Cafe",
-          50.0,
-          1
+          "bar",
+          "AAAAAAAALPLFBAAA",
+          "prieingbarn steing",
+          5777
         ],
         [
-          "Tienda_Norte",
-          "Te",
-          40.0,
-          2
+          "cally",
+          "AAAAAAAAJOHEAAAA",
+          "n stbareseeingought",
+          4984
         ],
         [
-          "Tienda_Norte",
-          "Pan",
-          25.0,
-          3
+          "eing",
+          "AAAAAAAADFBGBAAA",
+          "oughtantiesebarn st",
+          5743
         ],
         [
-          "Tienda_Sur",
-          "Leche",
-          60.0,
-          1
+          "ese",
+          "AAAAAAAALDHABAAA",
+          "ationeingpriationcally",
+          5791
         ],
         [
-          "Tienda_Sur",
-          "Te",
-          20.0,
-          2
+          "n st",
+          "AAAAAAAAHNAOAAAA",
+          "n stantiantiationanti",
+          2964
+        ],
+        [
+          "ought",
+          "AAAAAAAALFLKAAAA",
+          "ationcallyeingpriese",
+          3730
+        ],
+        [
+          "pri",
+          "AAAAAAAAHHPHBAAA",
+          "ationcallyoughteingn st",
+          3039
         ]
       ],
-      "time_taken": 0.35,
+      "total_rows": 10,
+      "time_taken": 85.4,
       "ok": true
     },
     {
       "n": 10,
       "question": "Dame el ranking de los meses según sus ventas totales.",
       "intent": {
-        "metric": "SUM(ss_net_paid)",
-        "dimension": "mes",
+        "metric": "suma de ss_net_paid",
+        "dimension": "mes (d_year, d_moy)",
         "filters": [],
         "order": "desc",
         "limit": null,
@@ -543,40 +1751,389 @@
         ],
         "needs_window": true
       },
-      "sql": "WITH ventas_mes AS ( SELECT d.d_year, d.d_moy, ROUND(SUM(ss.ss_net_paid), 2) AS ventas  FROM store_sales ss  JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk  GROUP BY d.d_year, d.d_moy) SELECT d_year, d_moy, ventas, RANK() OVER (ORDER BY ventas DESC) AS ranking FROM ventas_mes ORDER BY ranking",
-      "sql_explicacion": "Ventas totales por mes y su posición en un ranking descendente.",
+      "sql": "WITH ventas_mensuales AS (SELECT d.d_year, d.d_moy, ROUND(SUM(ss.ss_net_paid), 2) AS ventas_totales FROM store_sales ss INNER JOIN date_dim d ON ss.ss_sold_date_sk = d.d_date_sk GROUP BY d.d_year, d.d_moy) SELECT d_year, d_moy, ventas_totales, RANK() OVER (ORDER BY ventas_totales DESC) AS ranking FROM ventas_mensuales ORDER BY ranking",
+      "sql_explicacion": "Ranking de todos los meses (año-mes) de mayor a menor según la suma de ss_net_paid (ventas totales), usando RANK() para asignar la posición.",
       "engine": "spark",
-      "engine_razon": "ranking global con RANK() sobre la agregación mensual, función de ventana",
-      "insight": "La cifra principal es 1.",
+      "engine_razon": "Usa CTE, JOIN, agregación SUM con GROUP BY y ventana RANK() OVER, todo mejor optimizado en Spark.",
+      "insight": "Los cinco primeros puestos son todos del mes de **diciembre**, liderado por **Dic 1999** con **$1,570M** y seguido muy de cerca por **Dic 1998** ($1,568M). Diciembre duplica holgadamente a octubre del mismo año, confirmando que la estacionalidad navideña concentra el mayor volumen de ventas.",
       "columns": [
         "d_year",
         "d_moy",
-        "ventas",
+        "ventas_totales",
         "ranking"
       ],
       "rows": [
         [
-          2001,
-          1,
-          290.0,
+          1999,
+          12,
+          1570451206.11,
           1
+        ],
+        [
+          1998,
+          12,
+          1568219667.79,
+          2
+        ],
+        [
+          2000,
+          12,
+          1561066448.5,
+          3
+        ],
+        [
+          2002,
+          12,
+          1560629814.97,
+          4
+        ],
+        [
+          2001,
+          12,
+          1555478502.83,
+          5
+        ],
+        [
+          1998,
+          11,
+          1486165646.08,
+          6
+        ],
+        [
+          2000,
+          11,
+          1482473823.9,
+          7
+        ],
+        [
+          2002,
+          11,
+          1481642466.66,
+          8
+        ],
+        [
+          1999,
+          11,
+          1479932290.91,
+          9
+        ],
+        [
+          2001,
+          11,
+          1477141245.18,
+          10
+        ],
+        [
+          2001,
+          10,
+          1043010508.57,
+          11
+        ],
+        [
+          1998,
+          10,
+          1038537278.93,
+          12
+        ],
+        [
+          2002,
+          10,
+          1033014038.79,
+          13
+        ],
+        [
+          2000,
+          10,
+          1029635438.11,
+          14
+        ],
+        [
+          1999,
+          10,
+          1029485455.37,
+          15
+        ],
+        [
+          2000,
+          8,
+          1013389460.26,
+          16
+        ],
+        [
+          2002,
+          9,
+          1007862993.98,
+          17
+        ],
+        [
+          2000,
+          9,
+          1001173805.1,
+          18
+        ],
+        [
+          1998,
+          9,
+          1000590829.27,
+          19
+        ],
+        [
+          1999,
+          8,
+          999282583.95,
+          20
+        ],
+        [
+          2001,
+          9,
+          996895085.54,
+          21
+        ],
+        [
+          2002,
+          8,
+          994154389.57,
+          22
+        ],
+        [
+          1998,
+          8,
+          993131226.11,
+          23
+        ],
+        [
+          2001,
+          8,
+          992602764.81,
+          24
+        ],
+        [
+          1999,
+          9,
+          991988237.37,
+          25
         ],
         [
           2002,
           1,
-          125.0,
-          2
+          545590156.36,
+          26
+        ],
+        [
+          1999,
+          1,
+          542172679.72,
+          27
+        ],
+        [
+          2000,
+          1,
+          536238952.22,
+          28
+        ],
+        [
+          2001,
+          1,
+          485175203.6,
+          29
+        ],
+        [
+          2002,
+          7,
+          458023410.57,
+          30
+        ],
+        [
+          1998,
+          5,
+          457169342.53,
+          31
+        ],
+        [
+          1999,
+          7,
+          454300447.22,
+          32
+        ],
+        [
+          1999,
+          5,
+          454221045.76,
+          33
+        ],
+        [
+          2002,
+          5,
+          454184529.02,
+          34
+        ],
+        [
+          2001,
+          5,
+          454006048.53,
+          35
+        ],
+        [
+          2001,
+          7,
+          453774514.13,
+          36
+        ],
+        [
+          2000,
+          3,
+          453556715.89,
+          37
+        ],
+        [
+          2000,
+          5,
+          453532087.29,
+          38
+        ],
+        [
+          2000,
+          7,
+          453474650.38,
+          39
+        ],
+        [
+          1998,
+          7,
+          451272542.73,
+          40
+        ],
+        [
+          1999,
+          3,
+          444592497.54,
+          41
+        ],
+        [
+          1998,
+          6,
+          442285423.09,
+          42
+        ],
+        [
+          2001,
+          4,
+          441583859.96,
+          43
+        ],
+        [
+          2001,
+          6,
+          441554814.22,
+          44
+        ],
+        [
+          1999,
+          6,
+          440163037.7,
+          45
+        ],
+        [
+          2002,
+          4,
+          439528127.61,
+          46
+        ],
+        [
+          1998,
+          3,
+          439217954.1,
+          47
+        ],
+        [
+          2000,
+          6,
+          438220793.12,
+          48
+        ],
+        [
+          2002,
+          3,
+          437940742.05,
+          49
+        ],
+        [
+          1998,
+          4,
+          437536730.36,
+          50
+        ],
+        [
+          1999,
+          4,
+          437197919.61,
+          51
+        ],
+        [
+          2000,
+          4,
+          436868386.8,
+          52
+        ],
+        [
+          1998,
+          1,
+          436486922.84,
+          53
+        ],
+        [
+          2001,
+          3,
+          435934489.76,
+          54
+        ],
+        [
+          2002,
+          6,
+          429138082.71,
+          55
+        ],
+        [
+          2000,
+          2,
+          423010524.8,
+          56
+        ],
+        [
+          1999,
+          2,
+          416480908.99,
+          57
+        ],
+        [
+          2002,
+          2,
+          416439883.93,
+          58
         ],
         [
           2001,
           2,
-          90.0,
-          3
+          415995419.27,
+          59
+        ],
+        [
+          1998,
+          2,
+          406294565.36,
+          60
+        ],
+        [
+          2003,
+          1,
+          100853472.81,
+          61
         ]
       ],
-      "time_taken": 0.14,
+      "total_rows": 61,
+      "time_taken": 65.49,
       "ok": true
     }
   ],
-  "comparison_md": "# Comparación manual vs agéntico (6.4)\n\n_Correctitud sobre la muestra local: **9/9** preguntas con contraparte manual coinciden (✓ o ≈)._\n\n## Tabla comparativa\n\n| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | Correctitud | Nota | Calidad SQL |\n|---|----------|--------------|--------------|--------------|-------------|------|-------------|\n| 1 | ¿Cuáles son los 5 productos con mayor ingreso? | hive | 1.11 | 0.13 | ✓ | resultados idénticos (vs Q7) | np✓ ij✓ gb✓ ob✓ |\n| 2 | ¿Qué tienda tiene mayores ventas? | hive | 0.16 | 0.13 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q2) | np✓ ij✓ gb✓ ob✓ |\n| 3 | ¿En qué mes se registraron los mayores ingresos? | hive | 1.1 | 0.1 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q3) | np✓ ij✓ gb✓ ob✓ |\n| 4 | ¿Quiénes son los 10 mejores clientes por gasto total? | hive | 0.14 | 0.07 | ✓ | resultados idénticos (vs Q8) | np✓ ij✓ gb✓ ob✓ |\n| 5 | ¿Cuáles son los productos más vendidos por unidades? | hive | 0.11 | — | — | sin contraparte manual | np✗ ij✓ gb✓ ob✓ |\n| 6 | ¿Cuál es el ticket promedio por cliente? | spark | 0.15 | 0.09 | ✓ | resultados idénticos (vs Q6) | np✓ ij✓ gb✓ ob✓ |\n| 7 | ¿Cuáles son las ventas por día de la semana? | hive | 0.13 | 0.08 | ✓ | resultados idénticos (vs Q4) | np✓ ij✓ gb✓ ob✓ |\n| 8 | ¿Cuáles son los 20 clientes con mayor número de compras? | hive | 1.06 | 0.07 | ✓ | resultados idénticos (vs Q1) | np✗ ij✓ gb✓ ob✓ |\n| 9 | ¿Cuáles son los productos más vendidos en cada tienda? | spark | 0.35 | 0.13 | ✓ | resultados idénticos (vs Q5) | np✓ ij✓ gb✓ ob✓ |\n| 10 | Dame el ranking de los meses según sus ventas totales. | spark | 0.14 | 0.09 | ✓ | resultados idénticos (vs Q9) | np✓ ij✓ gb✓ ob✓ |\n\n_Calidad SQL: ✓ = el SQL del agente cumple el check; claves: np=usa ss_net_paid, ij=INNER JOIN, gb=GROUP BY, ob=ORDER BY._\n\n## Ventajas del flujo agéntico\n\n- Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.\n- Rapidez de exploración: de la pregunta al resultado en un paso.\n- Selección automática de motor (Hive/Spark) según la forma de la consulta.\n- Genera además un insight en lenguaje natural sobre el resultado.\n- El contexto de esquema + glosario reduce errores y fija las métricas de negocio.\n\n## Limitaciones del flujo agéntico\n\n- Riesgo de SQL incorrecto o alucinado (columnas/métricas equivocadas).\n- Depende fuertemente del contexto de esquema inyectado (schema_context.py).\n- Costo y latencia del LLM (intención + generación) sobre el tiempo de cómputo.\n- No determinismo: dos corridas pueden producir SQL distinto.\n- Requiere validación humana para análisis críticos (el manual es auditable).\n"
+  "comparison_md": "# Fase 6 — Comparación manual vs agéntico (6.4)\n\n_Correctitud sobre datos reales **TPC-DS SF10** (clúster EMR): **7/9** preguntas con contraparte manual coinciden (✓ o ≈). El SQL del agente corrió en el clúster real; el manual reusa la corrida 6.3 sobre los mismos datos (`results/hive/20260624-095016/job.out`)._\n\n## Tabla comparativa\n\n| Q | Pregunta | Motor agente | t agente (s) | t manual (s) | Correctitud | Nota | Calidad SQL |\n|---|----------|--------------|--------------|--------------|-------------|------|-------------|\n| 1 | ¿Cuáles son los 5 productos con mayor ingreso? | spark | 80.52 | 59.0 | ✓ | el agente pidió top-5; prefijo coincide con el manual (vs Q7) | np✓ ij✓ gb✓ ob✓ |\n| 2 | ¿Qué tienda tiene mayores ventas? | spark | 67.01 | 52.0 | ✓ | el agente pidió top-1; prefijo coincide con el manual (vs Q2) | np✓ ij✓ gb✓ ob✓ |\n| 3 | ¿En qué mes se registraron los mayores ingresos? | spark | 67.7 | 50.0 | ✗ | cabecera agente=7815845640.2 vs manual=436486922.84 (vs Q3) | np✓ ij✓ gb✓ ob✓ |\n| 4 | ¿Quiénes son los 10 mejores clientes por gasto total? | spark | 76.42 | 51.0 | ✓ | el agente pidió top-10; prefijo coincide con el manual (vs Q8) | np✓ ij✓ gb✓ ob✓ |\n| 5 | ¿Cuáles son los productos más vendidos por unidades? | spark | 75.6 | — | — | sin contraparte manual | np✗ ij✓ gb✓ ob✓ |\n| 6 | ¿Cuál es el ticket promedio por cliente? | spark | 83.73 | 67.0 | ✓ | el manual es top-20; prefijo coincide con el agente (vs Q6) | np✓ ij✓ gb✓ ob✓ |\n| 7 | ¿Cuáles son las ventas por día de la semana? | spark | 67.22 | 47.0 | ≈ | difieren en filas pero la cifra principal coincide (6651246344.85) (vs Q4) | np✓ ij✓ gb✓ ob✗ |\n| 8 | ¿Cuáles son los 20 clientes con mayor número de compras? | spark | 78.46 | 78.0 | ≈ | difieren en filas pero la cifra principal coincide (19.0) (vs Q1) | np✗ ij✓ gb✓ ob✓ |\n| 9 | ¿Cuáles son los productos más vendidos en cada tienda? | spark | 85.4 | 83.0 | ✗ | cabecera agente=5621.0 vs manual=1.0 (vs Q5) | np✗ ij✓ gb✓ ob✓ |\n| 10 | Dame el ranking de los meses según sus ventas totales. | spark | 65.49 | 50.0 | ✓ | resultados idénticos (vs Q9) | np✓ ij✓ gb✓ ob✓ |\n\n_Calidad SQL: ✓ = el SQL del agente cumple el check; claves: np=usa ss_net_paid, ij=INNER JOIN, gb=GROUP BY, ob=ORDER BY._\n\n## Ventajas del flujo agéntico\n\n- Accesibilidad: responde en lenguaje natural sin conocer el esquema ni SQL.\n- Rapidez de exploración: de la pregunta al resultado en un paso.\n- Selección automática de motor (Hive/Spark) según la forma de la consulta.\n- Genera además un insight en lenguaje natural sobre el resultado.\n- El contexto de esquema + glosario reduce errores y fija las métricas de negocio.\n\n## Limitaciones del flujo agéntico\n\n- Riesgo de SQL incorrecto o alucinado (columnas/métricas equivocadas).\n- Depende fuertemente del contexto de esquema inyectado (schema_context.py).\n- Costo y latencia del LLM (intención + generación) sobre el tiempo de cómputo.\n- No determinismo: dos corridas pueden producir SQL distinto.\n- Requiere validación humana para análisis críticos (el manual es auditable).\n"
 }
