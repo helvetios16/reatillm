@@ -31,9 +31,12 @@ export function chartFor(rec: AgentRecord): BarChart | null {
   }
   if (metricIdx === -1) return null
 
+  // Primera columna que no sea la métrica, sea o no numérica (p.ej. "mes"=12
+  // es una etiqueta válida aunque sea un número; antes solo se aceptaban
+  // columnas de texto y una fila como Q03 caía al fallback "#1").
   let labelIdx = -1
   for (let c = 0; c < ncols; c++) {
-    if (c !== metricIdx && toNum(rows[0][c]) === null) {
+    if (c !== metricIdx) {
       labelIdx = c
       break
     }
@@ -45,7 +48,10 @@ export function chartFor(rec: AgentRecord): BarChart | null {
   const metricName = rec.columns?.[metricIdx] ?? 'valor'
 
   return {
-    data: { labels, datasets: [{ label: metricName, backgroundColor: ACCENT, data }] },
+    data: {
+      labels,
+      datasets: [{ label: metricName, backgroundColor: ACCENT, data, maxBarThickness: 64 }],
+    },
     options: {
       indexAxis: labels.length > 6 ? 'y' : 'x',
       responsive: true,
